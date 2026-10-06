@@ -1,0 +1,113 @@
+/* ================================================================ overview */
+.overview .toolbar .seg { flex: none; }
+.undo-group { display: flex; gap: 2px; }
+
+.ov-grid {
+  display: grid; gap: var(--gap);
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+@media (max-width: 1120px) {
+  .ov-grid { grid-template-columns: minmax(290px, 340px) minmax(0, 1fr); }
+  .ov-grid .input-card.hero { grid-row: span 2; }
+}
+@media (max-width: 760px) {
+  .ov-grid { grid-template-columns: minmax(0, 1fr); }
+  .ov-grid .input-card.hero { grid-row: auto; }
+  .page { padding: 4px 16px 28px; }
+  .toolbar { flex-wrap: wrap; }
+  .toolbar .seg.lg > button span { display: none; }
+  .toolbar .seg.lg > button { min-width: 56px; padding: 0 14px; }
+}
+
+.input-card { display: flex; flex-direction: column; align-items: stretch; }
+.input-card .dial-wrap { display: grid; place-items: center; padding: 22px 0 8px; }
+.input-card.compact .dial-wrap { padding: 14px 0 4px; }
+.dial-readout { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 58px; }
+.dial-value {
+  font-size: 30px; line-height: 34px; font-weight: 650; letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 32;
+}
+.input-card.compact .dial-value { font-size: 22px; line-height: 26px; }
+.input-card.compact .dial-readout { min-height: 46px; }
+.dial-status { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.peak { font-size: 12px; color: var(--text-2); }
+.dial-hint { text-align: center; color: var(--text-3); margin-top: 2px; }
+.input-controls { display: flex; justify-content: center; gap: 8px; margin-top: auto; padding-top: 18px; flex-wrap: wrap; }
+.input-card.no-meter .dial .ring-off { fill: var(--fill); }
+
+.out-card { display: flex; flex-direction: column; }
+.out-card.is-off .vol-row, .out-card.is-off .mix-rows, .out-card.is-off .section-title,
+.out-card.is-off .add-source, .out-card.is-off .inline-hint { opacity: 0.45; }
+.out-card .card-head .btn { margin-left: auto; }
+
+.vol-row, .mix-row { display: flex; flex-direction: column; gap: 2px; }
+.row-top { display: flex; align-items: center; gap: 10px; min-height: 26px; }
+.vol-row { margin-top: 16px; padding: 10px 14px 6px; border-radius: 14px; background: var(--fill); }
+.vol-row .row-label { font-size: 13.5px; }
+.vol-row .row-value { font-size: 14px; }
+.vol-row .slider .track { height: 8px; margin-top: -4px; border-radius: 4px; }
+.vol-row .slider .thumb { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+.slider { width: 100%; }
+.row-label {
+  display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1;
+  font-weight: 600; white-space: nowrap; overflow: hidden;
+}
+.row-label .src-ico { color: var(--text-2); display: grid; flex: none; }
+.row-label .src-ico svg { width: 17px; height: 17px; }
+.row-label .src-name { overflow: hidden; text-overflow: ellipsis; }
+.row-end { display: flex; align-items: center; gap: 2px; justify-content: flex-end; flex: none; }
+.row-value { min-width: 62px; text-align: right; font-weight: 600; color: var(--text); font-size: 13px; padding-right: 4px; }
+.row-value.dimmer { color: var(--text-3); font-weight: 550; }
+.knob-note { display: grid; color: var(--text-3); }
+.knob-note svg { width: 15px; height: 15px; }
+.mix-rows { display: flex; flex-direction: column; gap: 10px; }
+.mix-row { padding: 0 14px; }
+.mix-row .icon-btn.remove { opacity: 0; transition: opacity var(--t-fast); }
+.mix-row:hover .icon-btn.remove, .mix-row .icon-btn.remove:focus-visible { opacity: 1; }
+.mix-row.is-muted .src-name { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--text-3); }
+.mix-row.is-muted .row-value { color: var(--text-3); }
+.add-source { align-self: flex-start; margin: 10px 0 0 4px; color: var(--text-2); }
+.inline-hint {
+  display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 9px 12px; border-radius: 12px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent); font-weight: 550;
+}
+
+.more { margin-top: 22px; }
+.more-summary { color: var(--text-3); font-weight: 550; margin-left: 4px; }
+.more-grid {
+  display: grid; gap: var(--gap); margin-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+/* ================================================================ offline */
+.offline { position: absolute; inset: var(--titlebar) 0 0; display: grid; place-items: center; padding: 24px; }
+.offline-card { max-width: 440px; text-align: center; }
+.offline-card h1 { font-size: var(--fs-display); line-height: var(--lh-display); font-weight: 700; letter-spacing: -0.02em; margin: 26px 0 10px; }
+.offline-card p { color: var(--text-2); font-size: 14px; line-height: 21px; margin: 0 0 22px; }
+.offline-device { display: grid; place-items: center; }
+.od-body {
+  width: 220px; height: 128px; border-radius: 26px; position: relative;
+  background: linear-gradient(180deg, var(--metal-hi), var(--metal-mid) 60%, var(--metal-lo));
+  box-shadow: 0 0 0 1px var(--metal-edge), inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 18px 40px rgba(0, 0, 0, 0.35);
+  opacity: 0.9;
+}
+.od-knob {
+  position: absolute; right: 30px; top: 50%; width: 70px; height: 70px; margin-top: -35px; border-radius: 50%;
+  background: conic-gradient(from 20deg, var(--metal-mid), var(--metal-hi) 12%, var(--metal-lo) 25%, var(--metal-hi) 40%, var(--metal-mid) 50%, var(--metal-hi) 62%, var(--metal-lo) 76%, var(--metal-hi) 90%, var(--metal-mid));
+  box-shadow: 0 0 0 1px var(--metal-edge), 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.od-bars { position: absolute; left: 32px; top: 34px; display: flex; gap: 8px; }
+.od-bars i { display: block; width: 7px; height: 60px; border-radius: 4px; background: rgba(0, 0, 0, 0.35); }
+.searching { display: inline-flex; align-items: center; gap: 10px; color: var(--text-2); font-weight: 550; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--fill-3); border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ================================================================ scenes popover */
+.scene-row { display: flex; align-items: center; gap: 2px; }
+.scene-row .menu-item { flex: 1; min-width: 0; }
+.scenes-empty { max-width: 280px; }
