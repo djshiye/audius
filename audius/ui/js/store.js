@@ -1,7 +1,7 @@
 // Application state, mirrored from the Python model by patches.
 export const state = {
   platform: {}, device: { connected: false }, inputs: [], outputs: [], strips: [], sends: {}, raw: {},
-  listen: "none", overview_sources: {}, scenes: [], prefs: {}, undo: {}, meters: { channels: [] }, page: "overview",
+  listen: "none", overview_sources: {}, scenes: [], prefs: {}, undo: {}, meters: { channels: [] }, page: "overview", ui: {},
 };
 
 const listeners = new Set();
