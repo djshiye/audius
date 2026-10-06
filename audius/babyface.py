@@ -314,7 +314,7 @@ class Babyface(Device):
             if bad:
                 self.poisoned.add(n)
         if self.poisoned:
-            log.warning("%d crosspoints are stuck until the Babyface is reconnected: %s",
+            log.warning("%d crosspoint(s) locked by the driver bug, left alone (docs/KERNEL-BUG.md): %s",
                         len(self.poisoned), ", ".join(sorted(self.poisoned)))
         self._by_numid = {c.numid: c for c in self.controls.values()}
         self._watch_id = None
@@ -383,7 +383,7 @@ class Babyface(Device):
                     continue
                 v, bad = normalize(c.name, self._ctl.read(c))
                 if bad and c.name not in self.poisoned:
-                    log.warning("%s was set to an odd value elsewhere; locked until reconnect", c.name)
+                    log.warning("%s was set to an odd value elsewhere; locked (docs/KERNEL-BUG.md)", c.name)
                     self.poisoned.add(c.name)
                     changed[c.name] = v
                 if v != self.values.get(c.name):
@@ -391,8 +391,8 @@ class Babyface(Device):
                     self._writer.note(c.name, v)
                     changed[c.name] = v
         except alsa.DeviceGone:
+            self._watch_id = None      # this source is ending; close() mustn't remove it again
             self._mark_gone()
-            self._watch_id = None
             return False
         except alsa.AlsaError as e:
             log.warning("control event: %s", e)

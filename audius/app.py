@@ -153,12 +153,14 @@ class Window(Adw.ApplicationWindow):
         else:
             self._inactive_since = time.monotonic()
 
-    def _on_close(self, *_):
+    def remember_geometry(self):
         w = self.app.cfg["window"]
         w["maximized"] = self.is_maximized()
         if not self.is_maximized() and not self.app.args.size:
             w["width"], w["height"] = self.get_width(), self.get_height()
-        self.app.cfg.save()
+
+    def _on_close(self, *_):
+        self.remember_geometry()
         return False
 
 
@@ -233,6 +235,8 @@ class App(Adw.Application):
     def do_shutdown(self):
         self.meters.stop()
         self.cfg["ui"]["page"] = self.page
+        if self.win and not self.args.screenshot:
+            self.win.remember_geometry()      # also on Ctrl+Q, which skips close-request
         if not self.args.screenshot:
             self.cfg.flush()
             self.cfg.save()
