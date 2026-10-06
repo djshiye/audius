@@ -69,7 +69,8 @@
 .mix-row.is-muted .row-value { color: var(--text-3); }
 .add-source { align-self: flex-start; margin: 10px 0 0 4px; color: var(--text-2); }
 .inline-hint {
-  display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 9px 12px; border-radius: 12px;
+  display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; justify-content: space-between;
+  margin-top: 10px; padding: 9px 12px; border-radius: 12px;
   background: color-mix(in oklab, var(--accent) 12%, transparent); font-weight: 550;
 }
 
@@ -205,6 +206,8 @@
 .mx-cell:active { transform: scale(0.95); }
 .mx-cell.r { margin-right: 8px; }
 .mx-cell.col-off { opacity: 0.45; }
+.mx-cell.locked { background: repeating-linear-gradient(135deg, var(--fill) 0 4px, transparent 4px 8px); }
+.mx-cell.locked::before { display: none; }
 
 /* ================================================================ device */
 .device-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
@@ -301,3 +304,9 @@
 .kbd-list { display: grid; gap: 7px; }
 .kbd-row { display: flex; align-items: center; gap: 12px; font-size: 12px; }
 .kbd-keys { display: inline-flex; gap: 4px; min-width: 150px; }
+
+.settings-card.notice .settings-title { display: flex; align-items: center; gap: 9px; color: var(--phantom-text); }
+.settings-card.notice .settings-title svg { width: 18px; height: 18px; }
+.settings-card.notice p { margin: 0 0 10px; }
+.locked-list { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; }
+.locked-list code { font-family: var(--font-mono); font-size: 11.5px; padding: 3px 7px; border-radius: 6px; background: var(--fill); color: var(--text-2); }

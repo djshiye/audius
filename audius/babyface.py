@@ -91,6 +91,26 @@ def db_to_gain(ch, db):
 ALL_SOURCES = tuple(f"in:{c}" for c in INPUTS) + tuple(f"pb:{c}" for c in OUTPUTS)
 SEND_CTLS = tuple(send_ctl(s, o) for s in ALL_SOURCES for o in OUTPUTS)
 VOLUME_CTLS = tuple(volume_ctl(o) for o in OUTPUTS)
+
+# Kernel quirk bug (sound/usb/mixer_quirks.c): the mixer controls cache
+# `index | value << 9` while the index is 10 bits wide, so bit 0 of the value lands
+# on bit 9 of the index. Writing an odd value to a crosspoint (index < 512) makes
+# every later write to that control go to DSP address index+512 until the driver
+# re-probes, and the main-out controls (index >= 992) read back as value|1.
+# Audius therefore only ever writes even values, reads volumes back with bit 0
+# cleared, and leaves crosspoints that already read odd ("poisoned") alone.
+EVEN_ONLY = frozenset(SEND_CTLS + VOLUME_CTLS)
+
+
+def even(v):
+    return int(v) & ~1
+
+
+def normalize(name, raw):
+    """(value, poisoned) for a value read from the driver."""
+    if name in EVEN_ONLY:
+        return raw & ~1, bool(raw & 1) and name not in VOLUME_CTLS
+    return raw, False
 EXPECTED_CTLS = (SEND_CTLS + VOLUME_CTLS + tuple(gain_ctl(c) for c in MIC_INPUTS + LINE_INPUTS)
                  + tuple(p48_ctl(c) for c in MIC_INPUTS) + tuple(pad_ctl(c) for c in MIC_INPUTS)
                  + tuple(sens_ctl(c) for c in LINE_INPUTS)
@@ -210,6 +230,8 @@ class Writer(threading.Thread):
                 for name, value in batch:
                     # No de-duplication here: the driver already skips unchanged values,
                     # and our idea of "unchanged" may be stale after an external edit.
+                    if name in EVEN_ONLY:
+                        value = even(value)
                     try:
                         ctl.write(self._controls[name], value)
                         self._last[name] = value
@@ -236,6 +258,7 @@ class Device:
 
     def __init__(self):
         self.values = {}
+        self.poisoned = set()   # crosspoints the driver bug has redirected; never written
         self.on_change = None   # callback(dict name -> value) for changes made elsewhere
         self.on_gone = None     # callback() when the card disappears
 
@@ -284,7 +307,15 @@ class Babyface(Device):
             self._ctl.close()
             raise alsa.AlsaError(2, f"unexpected control set (missing {missing[:3]}…); is this kernel's "
                                     "Babyface Pro mixer quirk present?")
-        self.values = {n: self._ctl.read(c) for n, c in self.controls.items()}
+        self.values = {}
+        for n, c in self.controls.items():
+            v, bad = normalize(n, self._ctl.read(c))
+            self.values[n] = v
+            if bad:
+                self.poisoned.add(n)
+        if self.poisoned:
+            log.warning("%d crosspoints are stuck until the Babyface is reconnected: %s",
+                        len(self.poisoned), ", ".join(sorted(self.poisoned)))
         self._by_numid = {c.numid: c for c in self.controls.values()}
         self._watch_id = None
         self._gone = False
@@ -296,14 +327,18 @@ class Babyface(Device):
         value = int(value)
         if not c.min <= value <= c.max:
             raise ValueError(f"{name}: {value} outside {c.min}..{c.max}")
-        return value
+        return even(value) if name in EVEN_ONLY else value
 
     def set(self, name, value):
+        if name in self.poisoned:
+            return
         value = self._check(name, value)
         self.values[name] = value
         self._writer.set(name, value)
 
     def ramp(self, name, value, duration, start=None):
+        if name in self.poisoned:
+            return
         value = self._check(name, value)
         self.values[name] = value
         self._writer.ramp(name, value, duration, start)
@@ -315,12 +350,16 @@ class Babyface(Device):
 
     def resend(self, names):
         """Make the driver send values it believes the device already has: write a
-        neighbouring value first (the driver skips writes equal to its cache)."""
+        neighbouring value first (the driver skips writes equal to its cache).
+        Volume nudges are by 2 so they stay even."""
         writes = []
         for name in names:
+            if name in self.poisoned:
+                continue
             c = self.controls[name]
             v = self.values[name]
-            nudge = v + 1 if v < c.max else v - 1
+            step = 2 if name in EVEN_ONLY else 1
+            nudge = v + step if v + step <= c.max else v - step
             writes += [(name, nudge), (name, v)]
         self._writer.sequence(writes)
 
@@ -342,7 +381,11 @@ class Babyface(Device):
                 c = self._by_numid.get(numid)
                 if c is None or self._writer.busy(c.name):
                     continue
-                v = self._ctl.read(c)
+                v, bad = normalize(c.name, self._ctl.read(c))
+                if bad and c.name not in self.poisoned:
+                    log.warning("%s was set to an odd value elsewhere; locked until reconnect", c.name)
+                    self.poisoned.add(c.name)
+                    changed[c.name] = v
                 if v != self.values.get(c.name):
                     self.values[c.name] = v
                     self._writer.note(c.name, v)
@@ -408,11 +451,12 @@ class DemoDevice(Device):
         self.resent = []
 
     def set(self, name, value):
-        self.values[name] = int(value)
+        self.values[name] = even(value) if name in EVEN_ONLY else int(value)
 
     def ramp(self, name, value, duration, start=None):
-        self.ramps.append((name, start, int(value), duration))
-        self.values[name] = int(value)
+        value = even(value) if name in EVEN_ONLY else int(value)
+        self.ramps.append((name, start, value, duration))
+        self.values[name] = value
 
     def ramp_linear(self, name, value, duration):
         self.ramp(name, value, duration)
@@ -433,7 +477,4 @@ def demo_state():
         send_ctl("in:AN1", "PH3"): MAX_RAW, send_ctl("in:AN1", "PH4"): MAX_RAW,
         gain_ctl("AN1"): 26, p48_ctl("AN1"): 1,
     }
-    for o in OUTPUTS:
-        s[volume_ctl(o)] = 1
-    s[volume_ctl("PH3")] = s[volume_ctl("PH4")] = db_to_raw(-18)
-    return s
+    return s   # output volumes read as 0: never written this boot, so unknown
