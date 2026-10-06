@@ -37,6 +37,12 @@ jobs:
       - name: Unit tests
         run: python3 -m unittest discover -s tests -v
 
+      - name: Interface checks
+        run: |
+          dnf install -y nodejs
+          for f in audius/ui/js/*.js audius/ui/js/pages/*.js; do node --input-type=module --check < "$f"; done
+          node tests/test_dsp.mjs
+
       - name: Build RPM
         run: |
           VERSION=$(sed -n 's/^Version: *//p' build-aux/audius.spec)

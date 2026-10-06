@@ -439,7 +439,7 @@ class App(Adw.Application):
                 "titlebar": th or 52, "decoration_layout": layout, "demo": self.args.demo}
 
     def full_state(self):
-        state = {"platform": self.platform(), "page": self.page,
+        state = {"platform": self.platform(), "page": self.page, "ui": dict(self.cfg["ui"]),
                  "meters": {"channels": self.meters.channels if self.meters.running else [],
                             "enabled": self.cfg["prefs"].get("meters", True)}}
         if self.mixer:
@@ -468,6 +468,11 @@ class App(Adw.Application):
             return self.full_state()
         if cmd == "page":
             self.set_page(msg["page"])
+            return {"ok": True}
+        if cmd == "ui":                      # small bits of interface state worth remembering
+            if msg.get("key") in ("more_inputs", "mixer_output"):
+                self.cfg["ui"][msg["key"]] = msg.get("value")
+                self.cfg.changed()
             return {"ok": True}
         if cmd == "ready_to_shoot":
             if self.args.screenshot and not getattr(self, "_shot_scheduled", False):

@@ -20,9 +20,10 @@ let current = "PH3";
 let fh = 300;
 
 export function mount(el) {
+  if (state.ui.mixer_output) current = state.ui.mixer_output;
   root = h("div", { class: "page-inner mixer" });
   el.append(root);
-  seg = new Segmented({ items: outItems(), value: current, label: "Mixing for", onChange: (v) => { current = v; build(); } });
+  seg = new Segmented({ items: outItems(), value: current, label: "Mixing for", onChange: pick });
   sub = h("div", { class: "page-sub" });
   root.append(h("div", { class: "toolbar" },
     h("span", { class: "toolbar-label" }, "Mixing for"), seg.el, h("div", { class: "spacer" }), undoGroup(), scenesButton()), sub);
@@ -44,6 +45,12 @@ export function mount(el) {
   build();
 }
 
+function pick(v) {
+  current = v;
+  send("ui", { key: "mixer_output", value: v });
+  build();
+}
+
 function outItems() {
   return state.outputs.filter((o) => o.visible).map((o) => ({ value: o.id, label: o.name }));
 }
@@ -52,7 +59,7 @@ function refreshItems() {
   const items = outItems();
   if (!items.some((i) => i.value === current)) current = "PH3";
   const old = seg.el;
-  seg = new Segmented({ items, value: current, label: "Mixing for", onChange: (v) => { current = v; build(); } });
+  seg = new Segmented({ items, value: current, label: "Mixing for", onChange: pick });
   old.replaceWith(seg.el);
 }
 

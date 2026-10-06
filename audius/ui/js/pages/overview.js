@@ -34,7 +34,8 @@ export function mount(el) {
   moreBtn = h("button", { class: "disclosure", "aria-expanded": "false" }, ico("chevronRight"), h("span", {}, "Other inputs"),
     h("span", { class: "more-summary" }));
   moreBtn.addEventListener("click", () => {
-    state.ui_more = !state.ui_more;
+    state.ui.more_inputs = !state.ui.more_inputs;
+    send("ui", { key: "more_inputs", value: state.ui.more_inputs });
     syncMore();
   });
   more = h("section", { class: "more" }, moreBtn, moreGrid);
@@ -51,8 +52,8 @@ export function mount(el) {
 }
 
 function syncMore() {
-  moreBtn.setAttribute("aria-expanded", String(!!state.ui_more));
-  moreGrid.hidden = !state.ui_more;
+  moreBtn.setAttribute("aria-expanded", String(!!state.ui.more_inputs));
+  moreGrid.hidden = !state.ui.more_inputs;
 }
 
 function build() {
