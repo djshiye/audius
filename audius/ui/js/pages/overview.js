@@ -198,9 +198,10 @@ function outputCard(outId) {
     onInput: (db, g) => { volValue.textContent = fmtDb(db); vol.el.classList.remove("ghost"); volSender({ out: outId, db, gesture: g }); },
     onEnd: () => volSender.flush(),
   });
-  const silentHint = h("div", { class: "inline-hint", hidden: true },
-    h("span", {}, "Speakers are silent."),
-    h("button", { class: "link-btn", onclick: () => send("volume", { out: outId, db: -40 }) }, "Start at −40 dB"));
+  const hintText = h("span", {});
+  const startDb = () => state.prefs.speaker_start_db ?? -40;
+  const startBtn = h("button", { class: "link-btn", onclick: () => send("volume", { out: outId, db: startDb() }) });
+  const silentHint = h("div", { class: "inline-hint", hidden: true }, hintText, startBtn);
   const volRow = h("div", { class: "vol-row" },
     h("div", { class: "row-top" }, h("div", { class: "row-label" }, "Volume"), h("div", { class: "row-end" }, knobNote, volValue)),
     vol.el);
@@ -232,15 +233,19 @@ function outputCard(outId) {
     el.classList.toggle("is-off", !o.on);
     offBtn.hidden = o.on;
     vol.setMax(o.limit_db);
-    const unknown = o.knob && !o.volume_fresh && (o.volume_db === null || o.volume_db <= -80);
+    const unknown = !o.volume_known;
     vol.el.classList.toggle("ghost", unknown && !vol.dragging);
     if (!vol.dragging) {
-      vol.set(o.volume_db);
-      volValue.textContent = unknown ? "On the knob" : fmtDb(o.volume_db);
+      vol.set(unknown ? null : o.volume_db);
+      volValue.textContent = unknown ? (o.knob ? "On the knob" : "Not set") : fmtDb(o.volume_db);
     }
     volValue.classList.toggle("dimmer", unknown);
+    volValue.title = unknown ? "Audius hasn’t set this volume yet, so it is wherever the Babyface has it. Your first change fades in from quiet." : "";
     knobNote.hidden = o.volume_fresh || unknown;
-    silentHint.hidden = !(o.kind === "speakers" && o.on && (o.volume_db === null || o.volume_db <= -60));
+    const quiet = unknown || o.volume_db === null || o.volume_db <= -60;
+    hintText.textContent = unknown ? "Speaker volume isn’t set yet." : "Speakers are silent.";
+    startBtn.textContent = `Start at ${fmtDb(startDb(), { digits: 0 })}`;
+    silentHint.hidden = !(o.kind === "speakers" && o.on && quiet);
   }
   outputs();
   return {

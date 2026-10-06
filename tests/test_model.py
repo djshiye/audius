@@ -135,7 +135,7 @@ class MixerModel(unittest.TestCase):
         self.m.set_send("pb:AN1", "PH3", db=-10)          # adjusted while off
         self.assertEqual(self.dev.values[c], 0)
         self.m.set_output_on("PH3", True)
-        self.assertEqual(self.dev.values[c], bf.db_to_raw(-10))
+        self.assertEqual(self.dev.values[c], bf.even(bf.db_to_raw(-10)))
 
     def test_listen_on_speakers_starts_quiet(self):
         self.m.set_listen("speakers")
@@ -182,7 +182,7 @@ class MixerModel(unittest.TestCase):
         self.assertEqual(self.dev.values[bf.send_ctl("in:AN1", "PH3")], before)
         self.assertFalse(self.m.undo_view()["can_undo"])
         self.m.redo()
-        self.assertEqual(self.dev.values[bf.send_ctl("in:AN1", "PH3")], bf.db_to_raw(-9))
+        self.assertEqual(self.dev.values[bf.send_ctl("in:AN1", "PH3")], bf.even(bf.db_to_raw(-9)))
 
     def test_scenes(self):
         sid = self.m.save_scene("Listening")
@@ -242,6 +242,56 @@ class MixerModel(unittest.TestCase):
         self.assertEqual(n, len(self.dev.resent))
         self.m.resend_all(include_volumes=True)
         self.assertIn("Main-Out PH3", self.dev.resent)
+
+
+class KernelBugWorkaround(unittest.TestCase):
+    """The driver packs `index | value << 9` with a 10-bit index (see babyface.py)."""
+
+    def setUp(self):
+        self.m, self.dev, self.cfg, self.clock, self.patches, self.toasts = make_mixer()
+
+    def test_reads_are_normalized(self):
+        self.assertEqual(bf.normalize("Main-Out PH3", 1), (0, False))            # never written
+        self.assertEqual(bf.normalize("Main-Out AN1", 20001), (20000, False))
+        self.assertEqual(bf.normalize("Mic-AN1-PH3 Playback Volume", 65536), (65536, False))
+        self.assertEqual(bf.normalize("Mic-AN1-PH3 Playback Volume", 1), (0, True))   # poisoned
+        self.assertEqual(bf.normalize("Mic-AN1 Gain", 27), (27, False))           # other controls untouched
+
+    def test_only_even_values_reach_volume_controls(self):
+        for db in (-59.3, -33.1, -6.7, -0.1, 0.0, 3.3, 6.0):
+            self.m.set_send("in:AN1", "PH3", db=db, pan=0.37)
+            self.m.set_volume("PH3", db)
+        self.m.set_listen("speakers")
+        self.m.set_listen("both")
+        for name in bf.EVEN_ONLY:
+            self.assertEqual(self.dev.values[name] % 2, 0, name)
+        for name, start, end, dur in self.dev.ramps:
+            if name in bf.EVEN_ONLY:
+                self.assertEqual(end % 2, 0, name)
+
+    def test_unknown_volumes(self):
+        outs = {o["id"]: o for o in self.m.view()["outputs"]}
+        self.assertIsNone(outs["PH3"]["volume_db"])
+        self.assertFalse(outs["AN1"]["volume_known"])
+        self.assertEqual(self.m.listen_mode(), "headphones")   # headphones live on the knob
+        self.m.set_volume("PH3", -20)
+        self.assertTrue(self.m.volume_known("PH3"))
+        self.assertAlmostEqual(self.m.volume_db("PH3"), -20, places=1)
+        # someone (alsactl, alsamixer) changed it behind our back -> unknown again
+        for ch in ("Main-Out PH3", "Main-Out PH4"):
+            self.dev.values[ch] = 2000
+        self.assertFalse(self.m.volume_known("PH3"))
+
+    def test_poisoned_crosspoints_are_never_written(self):
+        c = bf.send_ctl("in:AN1", "PH3")
+        self.dev.poisoned.add(c)
+        before = self.dev.values[c]
+        self.m.set_crosspoint(c, -20)
+        self.m.set_send("in:AN1", "PH3", db=-12)
+        self.m.set_output_on("PH3", False)
+        self.m.set_output_on("PH3", True)
+        self.assertEqual(self.dev.values[c], before)
+        self.assertIn(c, self.m.view()["locked"])
 
 
 if __name__ == "__main__":

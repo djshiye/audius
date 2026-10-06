@@ -139,7 +139,7 @@ svg { display: block; }
 .btn.small.icon { width: 26px; padding: 0; }
 
 .link-btn {
-  border: 0; background: none; padding: 0; color: var(--accent-text); font-weight: 600;
+  border: 0; background: none; padding: 0; color: var(--accent-text); font-weight: 600; white-space: nowrap;
 }
 .link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 

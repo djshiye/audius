@@ -202,7 +202,19 @@ class Mixer:
         o_l, o_r = OUT_PAIRS[out]
         return self.dev.values[bf.volume_ctl(o_l)], self.dev.values[bf.volume_ctl(o_r)]
 
+    def volume_known(self, out):
+        """Whether Audius knows the output volume: it set it, and the driver still holds
+        that value. A volume that was never written this boot reads 0 and lives only on
+        the device (its knob and its own memory)."""
+        mem = self.cfg["volumes"].get(out)
+        if mem is None:
+            return False
+        left, right = self.volume_raw(out)
+        return max(left, right) > 0 and abs(max(left, right) - bf.even(bf.db_to_raw(mem))) <= 2
+
     def volume_db(self, out):
+        if not self.volume_known(out):
+            return None
         return db_or_none(max(self.volume_raw(out)))
 
     def volume_fresh(self, out):
@@ -212,8 +224,8 @@ class Mixer:
     def audible(self, out):
         if not self.output_on(out):
             return False
-        if out in self.prefs.get("knob_outputs", ["PH3"]):
-            return True  # its volume lives on the device knob; the cached value means little
+        if out in self.prefs.get("knob_outputs", ["PH3"]) and not self.volume_known(out):
+            return True  # its volume lives on the device knob
         db = self.volume_db(out)
         return db is not None and db > AUDIBLE_DB
 
@@ -228,7 +240,9 @@ class Mixer:
         muted = self.cfg["send_mute"].get(key) if key else None
         off = self.cfg["output_off"].get(out)
         for ctl, value in targets.items():
-            value = max(0, min(bf.MAX_RAW, int(value)))
+            if ctl in self.dev.poisoned:
+                continue
+            value = bf.even(max(0, min(bf.MAX_RAW, int(value))))
             if muted is not None and ctl in muted:
                 muted[ctl] = value
             elif off is not None:
@@ -298,6 +312,7 @@ class Mixer:
         o_l, o_r = OUT_PAIRS[out]
         ctls = [bf.send_ctl(src, o) for src in bf.ALL_SOURCES for o in (o_l, o_r)]
         mem = self.cfg["output_off"]
+        ctls = [c for c in ctls if c not in self.dev.poisoned]
         if not on and out not in mem:
             stored = {c: self.dev.values[c] for c in ctls if self.dev.values[c] > 0}
             mem[out] = stored
@@ -323,7 +338,7 @@ class Mixer:
         self.set_output_on("PH3", want_ph, gesture=gesture, emit=False)
         self.set_output_on("AN1", want_sp, gesture=gesture, emit=False)
         if want_sp:
-            db = self.volume_db("AN1")
+            db = self.volume_db("AN1")      # None when unknown (never set from Audius)
             if db is None or db <= AUDIBLE_DB:
                 start = float(self.prefs.get("speaker_start_db", -40.0))
                 self.set_volume("AN1", start, force_fade=True, emit=False)
@@ -339,8 +354,10 @@ class Mixer:
             db = min(float(db), limit)
         o_l, o_r = OUT_PAIRS[out]
         cur_l, cur_r = self.volume_raw(out)
-        pan = balance(cur_l, cur_r) or 0.0
+        pan = (balance(cur_l, cur_r) or 0.0) if self.volume_known(out) else 0.0
         left, right = unbalance(bf.db_to_raw(db), pan)
+        self.cfg["volumes"][out] = db if db is not None else -120.0
+        self.cfg.changed()
         now = self.clock()
         fading = now < self._fade_until.get(out, 0.0)
         takeover = force_fade or (self.prefs.get("takeover_fade", True) and not self.volume_fresh(out))
@@ -638,6 +655,7 @@ class Mixer:
             "scenes": [{"id": sc["id"], "name": sc["name"], "created": sc["created"]} for sc in self.cfg["scenes"]],
             "prefs": self.prefs,
             "undo": self.undo_view(),
+            "locked": sorted(self.dev.poisoned),
         }
 
     def device_view(self):
@@ -676,7 +694,7 @@ class Mixer:
             out.append({
                 "id": o, "channels": list(pair), "name": self.cfg["names"].get(o) or name, "default_name": name,
                 "detail": detail, "kind": kind, "visible": self.output_visible(o), "on": self.output_on(o),
-                "audible": self.audible(o), "volume_db": db_or_none(max(left, right)),
+                "audible": self.audible(o), "volume_db": self.volume_db(o), "volume_known": self.volume_known(o),
                 "balance": round(balance(left, right) or 0.0, 3), "volume_fresh": self.volume_fresh(o),
                 "limit_db": float(self.cfg["limits"].get(o, 0.0)),
                 "knob": o in self.prefs.get("knob_outputs", ["PH3"]),
@@ -729,6 +747,8 @@ class Mixer:
         if dirty & set(bf.VOLUME_CTLS) or dirty & {"outputs", "strips", "prefs"} or sends_ctls:
             patch["outputs"] = self.outputs_view()
             patch["listen"] = self.listen_mode()
+        if sends_ctls:
+            patch["locked"] = sorted(self.dev.poisoned)
         if dirty & {bf.CLOCK, bf.OPTICAL_SPDIF, bf.SPDIF_PRO, bf.SPDIF_EMPHASIS}:
             patch["device"] = self.device_view()
             patch["outputs"] = self.outputs_view()

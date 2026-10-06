@@ -27,13 +27,16 @@ export function mount(el) {
   root = h("div", { class: "page-inner device" });
   el.append(root);
   build();
-  subscribe(["device", "prefs", "outputs"], build);
+  subscribe(["device", "prefs", "outputs", "locked"], build);
 }
 
 function build() {
   clear(root);
   const grid = h("div", { class: "device-grid" });
-  grid.append(deviceCard(), h("div", { class: "settings-col" }, clockCard(), safetyCard(), opticalCard(), levelsCard(), syncCard(), aboutCard()));
+  const col = h("div", { class: "settings-col" });
+  if (visibleLocked().length) col.append(lockedCard());
+  col.append(clockCard(), safetyCard(), opticalCard(), levelsCard(), syncCard(), aboutCard());
+  grid.append(deviceCard(), col);
   root.append(grid);
 }
 
@@ -102,6 +105,27 @@ function deviceCard() {
 }
 
 const fact = (k, v) => h("div", { class: "fact" }, h("dt", {}, k), h("dd", { class: "num" }, v));
+
+// Locked routes only matter if you can see them (the optical ones are hidden by default).
+function visibleLocked() {
+  const shownIn = new Set(state.strips.filter((s) => s.visible).flatMap((s) => s.channels.map((c) => `${s.kind}:${c}`)));
+  const shownOut = new Set(state.outputs.filter((o) => o.visible).flatMap((o) => o.channels));
+  return (state.locked || []).filter((ctl) => {
+    const m = ctl.match(/^(Mic|Line|PCM)-(\w+)-(\w+) Playback Volume$/);
+    if (!m) return true;
+    return shownIn.has(`${m[1] === "PCM" ? "pb" : "in"}:${m[2]}`) && shownOut.has(m[3]);
+  });
+}
+
+function lockedCard() {
+  const locked = visibleLocked();
+  const n = locked.length;
+  return h("section", { class: "card settings-card notice" },
+    h("div", { class: "settings-title" }, ico("warning"), n === 1 ? "1 route is locked" : `${n} routes are locked`),
+    h("p", { class: "setting-desc" },
+      `Something set an odd level on ${n === 1 ? "this route" : "these routes"}, which the Linux Babyface driver mishandles: further changes would land on the wrong channel, so Audius leaves ${n === 1 ? "it" : "them"} alone. Clearing it takes a one-time fix of the saved ALSA state; the README explains how.`),
+    h("div", { class: "locked-list" }, ...locked.map((c) => h("code", {}, c.replace(" Playback Volume", "")))));
+}
 
 // ---------------------------------------------------------------- settings
 function settingsCard(title, rows, extraClass = "") {

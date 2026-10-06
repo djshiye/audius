@@ -155,11 +155,11 @@ function masterStrip(outId) {
   const sync = () => {
     const o = output(outId);
     if (!o) return;
-    const unknown = o.knob && !o.volume_fresh && (o.volume_db === null || o.volume_db <= -80);
+    const unknown = !o.volume_known;
     fader.max = o.limit_db;
-    fader.set(o.volume_db);
+    fader.set(unknown ? null : o.volume_db);
     fader.el.classList.toggle("ghost", unknown && !fader.dragging);
-    if (!fader.dragging) value.textContent = unknown ? "Knob" : fmtDb(o.volume_db, { unit: false });
+    if (!fader.dragging) value.textContent = unknown ? "Not set" : fmtDb(o.volume_db, { unit: false });
     knob.classList.toggle("on", !o.volume_fresh);
     power.setChecked(o.on);
     el.classList.toggle("is-off", !o.on);

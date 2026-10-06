@@ -29,6 +29,7 @@ DEFAULTS = {
     "send_mute": {},        # "strip>outpair" -> {control: raw} to restore on unmute
     "output_off": {},       # outpair -> {control: raw} to restore when switched on
     "limits": {"AN1": 0.0, "PH3": 0.0, "AS1": 0.0, "ADAT3": 0.0, "ADAT5": 0.0, "ADAT7": 0.0},
+    "volumes": {},          # outpair -> last volume Audius set (dB); the device can't be read back
     "scenes": [],
     "prefs": {
         "meters": True,            # live levels (needs a capture stream)
@@ -50,7 +51,7 @@ DEFAULTS = {
 def _merge(base, extra):
     for k, v in extra.items():
         if isinstance(v, dict) and isinstance(base.get(k), dict) and k not in ("names", "pan_memory",
-                                                                               "send_mute", "output_off"):
+                                                                               "send_mute", "output_off", "volumes"):
             _merge(base[k], v)
         else:
             base[k] = v

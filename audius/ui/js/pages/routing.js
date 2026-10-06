@@ -38,6 +38,7 @@ export function mount(el) {
     pbSwitch.setChecked(!!state.prefs.show_all_playback);
     build();
   });
+  subscribe(["locked"], () => cells.forEach(paint));
   subscribe(["raw"], (changed, patch) => {
     for (const ctl of Object.keys(patch.raw || {})) {
       const c = cells.get(ctl);
@@ -123,6 +124,13 @@ function short(db) {
 }
 
 function paint(entry) {
+  if ((state.locked || []).includes(entry.ctl)) {
+    entry.el.classList.add("locked");
+    entry.el.disabled = true;
+    entry.el.textContent = "";
+    entry.el.title = `${entry.name}: locked. Something set an odd level here, which the Linux driver mishandles, so Audius leaves it alone.`;
+    return;
+  }
   const db = dbOf(entry);
   const on = db !== null;
   entry.el.classList.toggle("on", on);
