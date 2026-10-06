@@ -47,7 +47,7 @@ svg { display: block; }
 }
 .device-chip {
   display: flex; align-items: center; gap: 9px;
-  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
   white-space: nowrap;
 }
 .device-chip .led {
@@ -57,15 +57,17 @@ svg { display: block; }
 }
 .device-chip .led.off { background: var(--text-3); box-shadow: none; }
 .device-chip .sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); }
-.device-chip .demo { color: var(--phantom-text); }
+.device-chip .demo {     /* a neutral tag: orange is reserved for 48V */
+  color: var(--text-2); background: var(--fill-2); padding: 1px 7px; border-radius: var(--r-xs);
+  font-size: var(--fs-caption); font-weight: 600;
+}
 @media (max-width: 980px) { .device-chip .label, .device-chip .sep { display: none; } }
 
 .pages { position: relative; flex: 1; min-height: 0; }
 .page {
   position: absolute; inset: 0;
-  overflow-y: auto; overflow-x: hidden;
-  padding: 6px 28px 36px;
-  scrollbar-gutter: stable;
+  overflow-y: scroll; overflow-x: hidden;   /* same right edge on every page */
+  padding: 6px 18px 36px 28px;
 }
 .page.entering { animation: page-in var(--t-med) var(--ease-out); }
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -86,7 +88,7 @@ svg { display: block; }
   min-height: 52px; margin: 2px 0 14px;
 }
 .toolbar .spacer { flex: 1; }
-.toolbar-label { font-weight: 600; color: var(--text-2); font-size: var(--fs-body); }
+.toolbar-label { font-weight: 400; color: var(--text-2); font-size: var(--fs-body); }
 
 /* ---------------------------------------------------------------- cards */
 .card {
@@ -100,7 +102,7 @@ svg { display: block; }
 .card-head { display: flex; align-items: center; gap: 12px; min-height: 34px; }
 .card-head .titles { min-width: 0; flex: 1; }
 .card-title {
-  font-size: 15px; line-height: 20px; font-weight: 650; letter-spacing: -0.01em;
+  font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-sub { font-size: 12px; line-height: 16px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -111,7 +113,7 @@ svg { display: block; }
 }
 .glyph-tile svg { width: 19px; height: 19px; }
 .section-title {
-  font-size: 12px; font-weight: 650; letter-spacing: 0.01em; color: var(--text-2);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.01em; color: var(--text-2);
   margin: 18px 0 8px;
 }
 .divider { height: 1px; background: var(--hairline); margin: 16px -20px 0; }
@@ -134,6 +136,7 @@ svg { display: block; }
 .btn.accent { background: var(--accent); color: var(--on-accent); }
 .btn.accent:hover { background: color-mix(in oklab, var(--accent) 88%, white); }
 .btn.warn { background: var(--phantom); color: #1c1200; }
+.btn.warn:focus-visible { outline-color: var(--text); }
 .btn.danger { color: var(--clip); }
 .btn.small { height: 26px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
 .btn.small.icon { width: 26px; padding: 0; }
