@@ -1,0 +1,118 @@
+/*
+ * Audius design tokens.
+ * One colour, one meaning: --accent = values you set; green/amber/red = signal level only;
+ * --phantom = 48V only; --clip = clipping only. Contrast ratios are against --surface.
+ */
+:root {
+  --font: "Adwaita Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "Adwaita Mono", ui-monospace, monospace;
+
+  /* type scale (px ≈ pt at 1x): display 28/34, title 17/22, headline 14/19, body 13/18, caption 11/14 */
+  --fs-display: 28px; --lh-display: 34px;
+  --fs-title: 17px;   --lh-title: 22px;
+  --fs-headline: 14px; --lh-headline: 19px;
+  --fs-body: 13px;    --lh-body: 18px;
+  --fs-caption: 11px; --lh-caption: 14px;
+
+  --r-xs: 6px; --r-sm: 9px; --r-md: 13px; --r-lg: 20px; --r-xl: 26px;
+  --gap: 18px;
+  --titlebar: 52px;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --t-fast: 140ms; --t-med: 240ms; --t-slow: 420ms;
+
+  --accent: #3584e4;
+}
+
+/* ---------------------------------------------------------------- dark */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0f12;
+  --bg-glow: color-mix(in oklab, var(--accent) 9%, transparent);
+  --surface: #16191e;            /* cards */
+  --surface-2: #1e2228;          /* raised controls, popovers */
+  --surface-3: #262b33;          /* hover */
+  --sunken: #0b0d10;             /* tracks, grooves */
+  --hairline: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --fill: rgba(255, 255, 255, 0.06);
+  --fill-2: rgba(255, 255, 255, 0.10);
+  --fill-3: rgba(255, 255, 255, 0.15);
+
+  --text: #eceff4;               /* 15.3:1 */
+  --text-2: #a3aab5;             /* 7.5:1 */
+  --text-3: #7c8490;             /* 4.7:1 */
+  --accent-text: color-mix(in oklab, var(--accent) 72%, white);   /* ≈7:1 for GNOME blue */
+  --on-accent: #ffffff;
+
+  --level-green: #32d74b;
+  --level-amber: #ffd60a;
+  --level-red: #ff453a;
+  --led-off: rgba(255, 255, 255, 0.07);
+  --phantom: #ff9f0a;            /* 8.6:1 */
+  --phantom-text: #ffb340;
+  --clip: #ff453a;               /* 5.2:1 */
+  --ok: #32d74b;
+
+  --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.055) inset, 0 1px 0 rgba(255, 255, 255, 0.035) inset,
+                 0 1px 2px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.28);
+  --pop-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset, 0 18px 50px rgba(0, 0, 0, 0.55),
+                0 2px 6px rgba(0, 0, 0, 0.35);
+  --glass: rgba(30, 34, 40, 0.72);
+
+  /* machined aluminium */
+  --metal-hi: #f4f6f8;
+  --metal-mid: #c4c9d0;
+  --metal-lo: #8d939b;
+  --metal-edge: #5d636b;
+  --groove: rgba(20, 22, 26, 0.75);
+  --thumb: #f1f3f6;
+}
+
+/* ---------------------------------------------------------------- light */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f5;
+  --bg-glow: color-mix(in oklab, var(--accent) 7%, transparent);
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f4f4f7;
+  --sunken: #e7e7ec;
+  --hairline: rgba(0, 0, 0, 0.075);
+  --hairline-strong: rgba(0, 0, 0, 0.12);
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-2: rgba(0, 0, 0, 0.075);
+  --fill-3: rgba(0, 0, 0, 0.11);
+
+  --text: #1d1d1f;               /* 16.8:1 */
+  --text-2: #5c5d66;             /* 6.5:1 */
+  --text-3: #6e6f78;             /* 4.9:1 */
+  --accent-text: color-mix(in oklab, var(--accent) 88%, black);   /* ≈5.3:1 */
+  --on-accent: #ffffff;
+
+  --level-green: #28c840;
+  --level-amber: #ffc400;
+  --level-red: #ff3b30;
+  --led-off: rgba(0, 0, 0, 0.075);
+  --phantom: #ff9500;
+  --phantom-text: #a85600;       /* 5.3:1 */
+  --clip: #d70015;               /* 5.4:1 */
+  --ok: #1f8a33;
+
+  --card-shadow: 0 0 0 1px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.06);
+  --pop-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 18px 48px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --glass: rgba(255, 255, 255, 0.78);
+
+  --metal-hi: #ffffff;
+  --metal-mid: #d9dde2;
+  --metal-lo: #a9afb7;
+  --metal-edge: #8a9098;
+  --groove: rgba(40, 44, 50, 0.55);
+  --thumb: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; }
+}
+:root[data-reduce-motion="true"] { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; }

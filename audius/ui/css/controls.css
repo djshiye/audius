@@ -1,0 +1,330 @@
+/* ================================================================ segmented control */
+.seg {
+  position: relative; display: inline-flex; align-items: stretch;
+  padding: 3px; border-radius: 12px; background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.seg-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 0; width: 0;
+  border-radius: 9px; background: var(--fill-3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform var(--t-med) var(--ease-out), width var(--t-med) var(--ease-out), opacity var(--t-fast);
+  pointer-events: none;
+}
+:root[data-theme="light"] .seg-thumb { background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05); }
+.seg > button {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 0; background: none; border-radius: 9px;
+  height: 28px; padding: 0 14px; min-width: 64px;
+  font-weight: 600; color: var(--text-2);
+  transition: color var(--t-fast);
+}
+.seg > button:hover { color: var(--text); }
+.seg > button[aria-checked="true"] { color: var(--text); }
+.seg > button svg { width: 17px; height: 17px; }
+.seg.lg { border-radius: 15px; padding: 4px; }
+.seg.lg .seg-thumb { top: 4px; bottom: 4px; border-radius: 11px; }
+.seg.lg > button { height: 38px; padding: 0 18px; font-size: 13.5px; border-radius: 11px; }
+.seg.sm > button { height: 24px; padding: 0 10px; min-width: 0; font-size: 12px; }
+.seg.sm { border-radius: 10px; }
+.seg.sm .seg-thumb { border-radius: 7px; }
+
+/* ================================================================ pills (48V, PAD) */
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 13px 0 11px; border-radius: 15px; border: 0;
+  background: var(--fill); color: var(--text-2);
+  font-size: 12.5px; font-weight: 650; letter-spacing: 0.01em;
+  transition: background-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
+}
+.pill:hover { background: var(--fill-2); color: var(--text); }
+.pill:active { transform: scale(0.97); }
+.pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--fill-3); transition: background-color var(--t-fast), box-shadow var(--t-fast); }
+.pill[aria-pressed="true"] { color: var(--accent-text); background: color-mix(in oklab, var(--accent) 16%, transparent); }
+.pill[aria-pressed="true"] .led { background: var(--accent); }
+.pill.phantom[aria-pressed="true"] { color: var(--phantom-text); background: color-mix(in oklab, var(--phantom) 15%, transparent); }
+.pill.phantom[aria-pressed="true"] .led {
+  background: var(--phantom);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--phantom) 25%, transparent), 0 0 9px var(--phantom);
+}
+
+/* ================================================================ switch */
+.switch {
+  position: relative; flex: none; width: 40px; height: 24px; border-radius: 12px; border: 0; padding: 0;
+  background: var(--fill-2); transition: background-color var(--t-med) var(--ease-out);
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  transition: transform var(--t-med) var(--ease-out);
+}
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(16px); }
+
+/* ================================================================ horizontal slider */
+.slider {
+  --inset: 11px;
+  position: relative; height: 30px; flex: 1; min-width: 80px;
+  touch-action: none;
+}
+.slider .track {
+  position: absolute; left: var(--inset); right: var(--inset); top: 50%; height: 6px; margin-top: -3px;
+  border-radius: 3px; background: var(--fill-2); overflow: hidden;
+}
+.slider .fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+  background: var(--accent); border-radius: 3px;
+  transform-origin: left center; transform: scaleX(var(--pos, 0));
+}
+.slider .detent {
+  position: absolute; top: 50%; width: 2px; height: 12px; margin: -6px 0 0 -1px; border-radius: 1px;
+  background: var(--fill-3); left: calc(var(--inset) + var(--unity, 0.8) * (100% - 2 * var(--inset)));
+}
+.slider .thumb {
+  position: absolute; top: 50%; left: var(--inset); width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border-radius: 50%; background: var(--thumb);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 2px 5px rgba(0, 0, 0, 0.32), 0 0.5px 0 rgba(255, 255, 255, 0.4) inset;
+  transform: translateX(calc(var(--pos, 0) * var(--w, 0px)));
+  transition: box-shadow var(--t-fast), scale var(--t-fast);
+}
+.slider:active .thumb, .slider.dragging .thumb { scale: 1.12; }
+.slider.ghost .thumb { opacity: 0.0; }
+.slider.ghost .fill { opacity: 0.0; }
+.slider.ghost .track { background: repeating-linear-gradient(90deg, var(--fill-2) 0 6px, transparent 6px 10px); }
+.slider.off .fill { background: var(--text-3); }
+.slider.muted .fill { background: var(--text-3); }
+.slider .cmeter {
+  position: absolute; left: var(--inset); right: var(--inset); top: 50%; margin-top: 7px; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--level-green) 0 70%, var(--level-amber) 72% 91%, var(--level-red) 93%);
+  opacity: 0.95; overflow: hidden;
+}
+.slider .cmeter .cover {
+  position: absolute; inset: 0; background: var(--surface);
+  transform-origin: right center; transform: scaleX(1);
+}
+.slider .cmeter::before {
+  content: ""; position: absolute; inset: 0; background: var(--led-off); z-index: -1;
+}
+
+/* ================================================================ gain dial (the signature) */
+.dial {
+  position: relative; width: var(--size, 200px); height: var(--size, 200px);
+  touch-action: none; flex: none; border-radius: 50%;
+}
+.dial svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.dial .seg-led { transition: fill 60ms linear; }
+.dial .ring-off { fill: var(--led-off); }
+.dial .ring-g { fill: var(--level-green); }
+.dial .ring-a { fill: var(--level-amber); }
+.dial .ring-r { fill: var(--level-red); }
+.dial .ring-unmetered { fill: var(--fill); }
+.dial .gain-track { stroke: var(--fill-2); }
+.dial .gain-arc { stroke: var(--accent); transition: stroke-dashoffset 90ms linear; }
+.dial .zone { stroke: var(--text-3); opacity: 0.55; }
+.dial .zone-label { fill: var(--text-3); font-size: 8.5px; font-weight: 650; letter-spacing: 0.04em; }
+.dial .bezel {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(var(--size, 200px) * 0.62); height: calc(var(--size, 200px) * 0.62);
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, var(--sunken), color-mix(in oklab, var(--sunken) 70%, black));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 var(--hairline);
+}
+.dial .knob {
+  position: absolute; left: 50%; top: 50%;
+  width: calc(var(--size, 200px) * 0.56); height: calc(var(--size, 200px) * 0.56);
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.55), transparent 55%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.10) 0 1px, rgba(0, 0, 0, 0.035) 1px 2.4px),
+    conic-gradient(from 20deg, var(--metal-mid), var(--metal-hi) 10%, var(--metal-lo) 24%, var(--metal-hi) 38%,
+                   var(--metal-mid) 50%, var(--metal-hi) 62%, var(--metal-lo) 76%, var(--metal-hi) 90%, var(--metal-mid));
+  box-shadow:
+    0 0 0 1.5px var(--metal-edge),
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.85),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+    0 8px 16px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  transition: box-shadow var(--t-fast);
+}
+:root[data-theme="light"] .dial .knob {
+  box-shadow: 0 0 0 1px var(--metal-edge), inset 0 1.5px 0.5px #fff, inset 0 -2px 3px rgba(0, 0, 0, 0.16),
+              0 8px 16px rgba(0, 0, 0, 0.16), 0 2px 4px rgba(0, 0, 0, 0.14);
+}
+.dial .pointer {
+  position: absolute; inset: 0; border-radius: 50%;
+  transform: rotate(var(--angle, -135deg));
+}
+.dial .pointer::after {
+  content: ""; position: absolute; left: 50%; top: 9%; width: 4px; height: 19%; margin-left: -2px;
+  border-radius: 2px; background: var(--groove);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+.dial:focus-visible { outline-offset: 4px; }
+.dial.dragging .knob, .dial:active .knob { box-shadow:
+    0 0 0 1.5px var(--metal-edge), inset 0 1.5px 0.5px rgba(255, 255, 255, 0.85),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25), 0 4px 10px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.35); }
+
+/* ================================================================ pan knob */
+.pan {
+  position: relative; width: 34px; height: 34px; flex: none; touch-action: none; border-radius: 50%;
+}
+.pan svg { width: 100%; height: 100%; overflow: visible; }
+.pan .pan-track { stroke: var(--fill-2); }
+.pan .pan-arc { stroke: var(--accent); }
+.pan .pan-cap { fill: var(--surface-3); stroke: var(--hairline-strong); }
+.pan .pan-ptr { stroke: var(--text); }
+
+/* ================================================================ vertical fader */
+.vfader {
+  position: relative; width: 44px; height: var(--h, 260px); touch-action: none; flex: none;
+}
+.vfader .groove {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 6px; margin-left: -3px;
+  border-radius: 3px; background: var(--sunken); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 0 var(--hairline);
+  overflow: hidden;
+}
+.vfader .vfill {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
+  background: color-mix(in oklab, var(--accent) 85%, transparent);
+  transform-origin: bottom; transform: scaleY(var(--pos, 0));
+}
+.vfader.muted .vfill { background: var(--text-3); }
+.vfader .tick {
+  position: absolute; left: 50%; width: 22px; height: 1px; margin-left: -11px; background: var(--hairline-strong);
+}
+.vfader .tick.unity { width: 30px; margin-left: -15px; background: var(--text-3); height: 1.5px; }
+.vfader .cap {
+  position: absolute; left: 50%; top: 0; width: 40px; height: 24px; margin: -12px 0 0 -20px;
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 45%, rgba(0, 0, 0, 0.12)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.10) 0 1px, rgba(0, 0, 0, 0.03) 1px 2px),
+    linear-gradient(180deg, var(--metal-hi), var(--metal-mid) 55%, var(--metal-lo));
+  box-shadow: 0 0 0 1px var(--metal-edge), inset 0 1px 0 rgba(255, 255, 255, 0.85),
+              0 6px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.35);
+  transform: translateY(calc((1 - var(--pos, 0)) * var(--h, 260px)));
+}
+.vfader .cap::after {
+  content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; margin-top: -1px;
+  border-radius: 1px; background: var(--groove); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+:root[data-theme="light"] .vfader .cap { box-shadow: 0 0 0 1px var(--metal-edge), inset 0 1px 0 #fff, 0 6px 12px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.14); }
+.vscale { position: relative; width: 24px; height: var(--h, 260px); flex: none; }
+.vscale span {
+  position: absolute; right: 0; transform: translateY(-50%);
+  font-size: 9.5px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums;
+}
+
+/* ================================================================ meters */
+.meter-v {
+  position: relative; width: 5px; height: var(--h, 260px); border-radius: 3px; overflow: hidden; flex: none;
+  background: linear-gradient(0deg, var(--level-green) 0 69%, var(--level-amber) 71% 91%, var(--level-red) 93%);
+}
+.meter-v .cover {
+  position: absolute; inset: 0; background: var(--led-off);
+  transform-origin: top; transform: scaleY(1);
+}
+.meter-v::after {      /* LED segment gaps */
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, var(--surface) 3px 4px);
+}
+.meter-v .hold {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--text-2); z-index: 2;
+  transform: translateY(0); opacity: 0;
+}
+.meter-v .covermask { position: absolute; inset: 0; background: var(--surface); z-index: -1; }
+.meters { display: flex; gap: 2px; }
+.meter-v.na { background: var(--fill); }
+.meter-v.na .cover { display: none; }
+
+.clip-badge {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 11px; border: 0;
+  background: color-mix(in oklab, var(--clip) 16%, transparent); color: var(--clip);
+  font-size: 11.5px; font-weight: 700;
+}
+.clip-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--clip); }
+
+/* ================================================================ popovers, menus, toasts */
+.layer { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+.popover {
+  position: fixed; pointer-events: auto; min-width: 220px; max-width: 360px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7); backdrop-filter: blur(28px) saturate(1.7);
+  border-radius: 14px; box-shadow: var(--pop-shadow); padding: 6px;
+  animation: pop-in var(--t-fast) var(--ease-out);
+  transform-origin: var(--origin, top center);
+}
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+.popover.closing { animation: pop-out 110ms ease-in forwards; }
+@keyframes pop-out { to { opacity: 0; transform: scale(0.97); } }
+.popover .pop-title { font-weight: 650; font-size: 14px; padding: 8px 10px 2px; }
+.popover .pop-body { color: var(--text-2); padding: 4px 10px 10px; line-height: 18px; }
+.popover .pop-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 4px 6px 6px; }
+
+.menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 32px; padding: 6px 10px; border: 0; border-radius: 8px; background: none;
+  text-align: left; color: var(--text); font-size: 13px;
+}
+.menu-item svg { width: 16px; height: 16px; flex: none; color: var(--text-2); }
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.menu-item:hover svg, .menu-item:focus-visible svg { color: var(--on-accent); }
+.menu-item .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item .meta { font-size: 11.5px; color: var(--text-3); }
+.menu-item:hover .meta { color: color-mix(in oklab, var(--on-accent) 75%, transparent); }
+.menu-item.danger { color: var(--clip); }
+.menu-sep { height: 1px; background: var(--hairline); margin: 5px 8px; }
+.menu-label { font-size: 11.5px; font-weight: 650; color: var(--text-3); padding: 8px 10px 4px; }
+.menu-field { display: flex; gap: 6px; padding: 6px; }
+
+.field {
+  height: 30px; border-radius: 8px; border: 0; padding: 0 10px; min-width: 0; flex: 1;
+  background: var(--fill); color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.field:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent); }
+
+.inline-edit {
+  position: absolute; z-index: 5; height: 26px; width: 84px; border-radius: 7px; border: 0;
+  padding: 0 8px; text-align: center; font-variant-numeric: tabular-nums;
+  background: var(--surface-2); color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.toasts {
+  position: fixed; left: 0; right: 0; bottom: 22px; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 14px;
+  padding: 10px 12px 10px 18px; border-radius: 999px; min-height: 42px;
+  background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--pop-shadow); font-weight: 550;
+  animation: toast-in var(--t-med) var(--ease-out);
+}
+.toast.leaving { animation: toast-out 180ms ease-in forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
+
+.icon-btn {
+  width: 28px; height: 28px; border-radius: 8px; border: 0; background: none; color: var(--text-2);
+  display: inline-grid; place-items: center; flex: none;
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+.icon-btn:hover { background: var(--fill); color: var(--text); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn[aria-pressed="true"] { color: var(--clip); background: color-mix(in oklab, var(--clip) 13%, transparent); }
+.icon-btn.mute[aria-pressed="true"] { color: var(--text); background: var(--fill-2); }
+
+.disclosure {
+  display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 6px 4px;
+  font-weight: 650; color: var(--text-2); border-radius: 8px;
+}
+.disclosure:hover { color: var(--text); }
+.disclosure svg { width: 14px; height: 14px; transition: transform var(--t-med) var(--ease-out); }
+.disclosure[aria-expanded="true"] svg { transform: rotate(90deg); }
+
+.kbd {
+  display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 5px; text-align: center;
+  background: var(--fill-2); font-size: 11.5px; font-weight: 650; color: var(--text-2);
+}
