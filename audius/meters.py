@@ -31,6 +31,8 @@ class Meters:
         self._restart_id = None
         self._nodes = None
         self.channels = []
+        self.discover = None            # callable returning fresh nodes (profiles can change)
+        self.on_channels = None         # callback(list) when the metered channels change
 
     @property
     def running(self):
@@ -101,7 +103,9 @@ class Meters:
     def _restart(self):
         self._restart_id = None
         if self._nodes:
-            self.start(self._nodes)
+            nodes = self.discover() if self.discover else self._nodes
+            self.start(nodes or self._nodes)
+            self.on_channels and self.on_channels(self.channels)
         return False
 
 
