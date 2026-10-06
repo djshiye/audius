@@ -3,6 +3,7 @@ import argparse
 import json
 import logging
 import mimetypes
+import os
 import sys
 import time
 from pathlib import Path
@@ -93,7 +94,7 @@ class Window(Adw.ApplicationWindow):
             self.set_default_size(int(w.get("width", 1240)), int(w.get("height", 860)))
             if w.get("maximized"):
                 self.maximize()
-        self.set_size_request(380, 560)
+        self.set_size_request(560, 560)   # below this the title bar can't fit the page switcher and window controls
 
         self.view = Adw.ToolbarView(extend_content_to_top_edge=True, top_bar_style=Adw.ToolbarStyle.FLAT)
         self.header = Adw.HeaderBar(show_title=True)
@@ -163,7 +164,8 @@ class Window(Adw.ApplicationWindow):
 
 class App(Adw.Application):
     def __init__(self, args):
-        super().__init__(application_id=APP_ID if not args.screenshot else APP_ID + ".Shot",
+        # Screenshot runs get their own id each time, so the shell doesn't restore an old geometry.
+        super().__init__(application_id=APP_ID if not args.screenshot else f"{APP_ID}.Shot{os.getpid()}",
                          flags=Gio.ApplicationFlags.NON_UNIQUE if args.screenshot else Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.args = args
         # The demo never touches your real settings.
@@ -238,6 +240,9 @@ class App(Adw.Application):
 
     # ------------------------------------------------------------------ device
     def connect_device(self):
+        if self.args.offline:      # --offline: show the "connect your Babyface" screen (for screenshots)
+            self._start_polling()
+            return False
         try:
             self.dev = babyface.DemoDevice() if self.args.demo else babyface.Babyface()
         except alsa.AlsaError as e:
@@ -276,7 +281,7 @@ class App(Adw.Application):
             self._poll_id = GLib.timeout_add_seconds(2, self._poll_device)
 
     def _poll_device(self):
-        if alsa.find_card(babyface.USB_ID) is None:
+        if self.args.offline or alsa.find_card(babyface.USB_ID) is None:
             return True
         self._poll_id = None
         # Give the driver and alsa-restore a moment to settle.
@@ -552,16 +557,35 @@ class App(Adw.Application):
         return False
 
     def _shoot(self):
+        # Capture on the next frame: a static page may have nothing cached to snapshot yet.
+        self.win.queue_draw()
+        self.win.add_tick_callback(lambda *_: self._capture() and False)
+        return False
+
+    def _web_shot_done(self, web, result, _data):
+        try:
+            tex = web.get_snapshot_finish(result)
+            tex.save_to_png(self.args.screenshot)
+            print(f"saved {self.args.screenshot} (page only)")
+        except GLib.Error as e:
+            log.error("snapshot failed: %s", e)
+        self.quit()
+
+    def _capture(self):
         win = self.win
         w, h = win.get_width(), win.get_height()
         paintable = Gtk.WidgetPaintable.new(win)
         snap = Gtk.Snapshot()
         paintable.snapshot(snap, w, h)
         node = snap.to_node()
-        if node is not None:
-            tex = win.get_renderer().render_texture(node, None)
-            tex.save_to_png(self.args.screenshot)
-            print(f"saved {self.args.screenshot} ({w}x{h})")
+        if node is None:
+            # A hidden, static window may never get a frame; WebKit can still render the page.
+            self.web.get_snapshot(WebKit.SnapshotRegion.VISIBLE, WebKit.SnapshotOptions.TRANSPARENT_BACKGROUND,
+                                  None, self._web_shot_done, None)
+            return False
+        tex = win.get_renderer().render_texture(node, None)
+        tex.save_to_png(self.args.screenshot)
+        print(f"saved {self.args.screenshot} ({w}x{h})")
         self.quit()
         return False
 
@@ -581,6 +605,7 @@ def main(argv=None):
     parser.add_argument("--size", type=_size, metavar="WxH")
     parser.add_argument("--wait", type=int, default=900, metavar="MS", help="delay before a screenshot")
     parser.add_argument("--eval", metavar="JS", help=argparse.SUPPRESS)
+    parser.add_argument("--offline", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--version", action="version", version=f"Audius {__version__}")
     args = parser.parse_args(argv)
     if args.eval and not args.demo:

@@ -29,7 +29,7 @@
     <control>keyboard</control>
   </supports>
   <requires>
-    <display_length compare="ge">360</display_length>
+    <display_length compare="ge">560</display_length>
   </requires>
   <releases>
     <release version="1.0.0" date="2026-10-07">
