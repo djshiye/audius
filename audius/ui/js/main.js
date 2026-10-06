@@ -80,6 +80,7 @@ function renderOffline() {
   if (connected) {
     if (offline) { offline.remove(); offline = null; }
     pagesEl.hidden = false;
+    if (!current) show(ORDER.includes(state.page) ? state.page : "overview", false);   // first connect
     return;
   }
   pagesEl.hidden = true;
@@ -121,8 +122,7 @@ async function boot() {
   renderTitlebar();
   subscribe(["platform"], applyPlatform);
   subscribe(["device"], () => { renderTitlebar(); renderOffline(); });
-  renderOffline();
-  show(ORDER.includes(state.page) ? state.page : "overview", false);
+  renderOffline();     // shows the current page once a Babyface is there
   document.addEventListener("keydown", keys);
   document.addEventListener("wheel", (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
   document.addEventListener("contextmenu", (e) => e.preventDefault());
