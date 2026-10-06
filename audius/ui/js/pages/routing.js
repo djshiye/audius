@@ -29,7 +29,7 @@ export function mount(el) {
       h("label", { class: "inline-switch" }, optSwitch, "Optical"),
       h("label", { class: "inline-switch" }, pbSwitch, "Computer 3–12"),
       h("div", { class: "spacer" }), undoGroup(), scenesButton()),
-    h("div", { class: "page-sub" }, "Each square sends a source to an output channel. Click to connect at 0 dB or disconnect, scroll to adjust, double-click to type a level."));
+    h("div", { class: "page-sub" }, "Click a square to connect or disconnect. Scroll to adjust, double-click to type a level."));
   gridBox = h("div", { class: "matrix-card card" });
   root.append(gridBox);
   build();

@@ -63,7 +63,7 @@ export function closePopover() {
   if (onClose) onClose();
 }
 
-export function popover(anchor, content, { align = "center", width, onClose, role = "dialog", label } = {}) {
+export function popover(anchor, content, { align = "center", width, onClose, role = "dialog", label, focus = true } = {}) {
   closePopover();
   const el = h("div", { class: "popover", role, "aria-label": label });
   if (width) el.style.width = width + "px";
@@ -86,7 +86,7 @@ export function popover(anchor, content, { align = "center", width, onClose, rol
   anchor.setAttribute("aria-expanded", "true");
   open = { el, onClose, anchor };
   requestAnimationFrame(() => {
-    const f = el.querySelector("[autofocus], input, .menu-item, button");
+    const f = focus ? el.querySelector("[autofocus], input, .menu-item, button") : content;
     if (f) f.focus({ preventScroll: true });
   });
   return { el, close: closePopover };
@@ -120,13 +120,13 @@ export function confirmPop(anchor, { title, body, ok = "OK", okClass = "accent",
     let done = false;
     const finish = (v) => { if (!done) { done = true; resolve(v); } };
     const okBtn = h("button", { class: `btn ${okClass}`, onclick: () => { finish(true); closePopover(); } }, ok);
-    const box = h("div", {},
+    // No default button: Return must not confirm a warning before it's read (Escape cancels).
+    const box = h("div", { tabindex: "-1", class: "confirm" },
       h("div", { class: "pop-title" }, title),
       h("div", { class: "pop-body" }, body),
       h("div", { class: "pop-actions" },
         h("button", { class: "btn", onclick: () => { finish(false); closePopover(); } }, cancel), okBtn));
-    popover(anchor, box, { width: 300, onClose: () => finish(false), role: "alertdialog", label: title });
-    requestAnimationFrame(() => okBtn.focus());
+    popover(anchor, box, { width: 300, onClose: () => finish(false), role: "alertdialog", label: title, focus: false });
   });
 }
 

@@ -276,7 +276,7 @@ function mixRow(s, outId, container) {
   const row = h("div", { class: "mix-row" },
     h("div", { class: "row-top" },
       h("div", { class: "row-label" }, h("span", { class: "src-ico" }, ico(stripIcon(s))), h("span", { class: "src-name" }, s.name)),
-      h("div", { class: "row-end" }, value, remove, mute)),
+      h("div", { class: "row-end" }, remove, mute, value)),   // values end where the slider ends
     slider.el);
   container.append(row);
   const sync = () => {

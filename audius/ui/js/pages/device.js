@@ -93,11 +93,9 @@ function deviceCard() {
   guide.append(h("div", { class: "guide-note" }, ico("info"),
     h("span", {}, "Changes made on the device aren’t reported to the computer, so Audius keeps showing the last values it set. Volume changes made in Audius after you’ve used the knob fade in gently.")));
 
-  const facts = h("dl", { class: "facts" },
+  const facts = h("dl", { class: "facts" },          // rate and clock live in the Clock card
     fact("Mode", d.demo ? "Demo (no hardware)" : "Class Compliant"),
-    fact("Serial", d.serial || "—"),
-    fact("Sample rate", fmtRate(d.rate) || "Idle"),
-    fact("Clock", d.clock === "internal" ? "Internal" : "AutoSync"));
+    fact("Serial", d.serial || "—"));
   return h("section", { class: "card device-card" },
     h("div", { class: "card-head" }, h("div", { class: "titles" }, h("div", { class: "card-title big" }, d.name || "Babyface Pro FS"),
       h("div", { class: "card-sub" }, "RME · USB 2.0"))),

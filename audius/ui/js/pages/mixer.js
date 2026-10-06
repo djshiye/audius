@@ -33,8 +33,8 @@ export function mount(el) {
   new ResizeObserver(() => {
     cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {      // outside the observer callback: no resize loop
-      const avail = el.clientHeight - 300;
-      const next = clamp(Math.round(avail / 20) * 20, 180, 440);
+      const avail = el.clientHeight - 400;           // toolbar, subtitle, strip heads and feet
+      const next = clamp(Math.floor(avail / 20) * 20, 180, 440);
       if (next !== fh && el.clientHeight > 0) { fh = next; build(); }
     });
   }).observe(el);
@@ -84,7 +84,7 @@ function build() {
     scroller.append(g);
   }
   master = masterStrip(current);
-  area.append(scroller, master.el);
+  area.append(scroller, h("div", { class: "strip-group" }, h("div", { class: "group-label" }, "Output"), master.el));
 }
 
 function channelStrip(s) {

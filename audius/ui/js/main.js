@@ -32,8 +32,20 @@ function applyPlatform() {
   const root = document.documentElement;
   root.dataset.theme = p.dark === false ? "light" : "dark";
   root.dataset.reduceMotion = String(!!p.reduce_motion);
-  if (p.accent) root.style.setProperty("--accent", p.accent);
+  if (p.accent) root.style.setProperty("--accent", accentFor(p.accent));
   if (p.titlebar) root.style.setProperty("--titlebar", p.titlebar + "px");
+}
+
+// The accent marks values you set. GNOME accents that look like signal (green, amber),
+// 48V (orange) or clipping (red) would blur those meanings, so they fall back to blue.
+function accentFor(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  if (d < 0.15) return hex;                       // greys and slates are fine
+  let hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  hue = (hue * 60 + 360) % 360;
+  const clash = hue < 70 || hue > 335 || (hue > 95 && hue < 165);
+  return clash ? "#3584e4" : hex;
 }
 
 function renderTitlebar() {
