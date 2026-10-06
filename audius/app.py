@@ -357,6 +357,7 @@ class App(Adw.Application):
         s = web.get_settings()
         s.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.ALWAYS)
         s.set_enable_developer_extras(self.args.debug)
+        s.set_enable_write_console_messages_to_stdout(self.args.debug)
         s.set_enable_back_forward_navigation_gestures(False)
         s.set_javascript_can_access_clipboard(False)
         s.set_enable_smooth_scrolling(True)
