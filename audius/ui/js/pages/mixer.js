@@ -166,8 +166,8 @@ function masterStrip(outId) {
     fader.max = o.limit_db;
     fader.set(unknown ? null : o.volume_db);
     fader.el.classList.toggle("ghost", unknown && !fader.dragging);
-    if (!fader.dragging) value.textContent = unknown ? "Not set" : fmtDb(o.volume_db, { unit: false });
-    knob.classList.toggle("on", !o.volume_fresh);
+    if (!fader.dragging) value.textContent = unknown ? (o.knob ? "Knob" : "Not set") : fmtDb(o.volume_db, { unit: false });
+    knob.classList.toggle("on", !o.volume_fresh && !(unknown && o.knob));
     power.setChecked(o.on);
     el.classList.toggle("is-off", !o.on);
   };
