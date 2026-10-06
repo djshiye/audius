@@ -246,6 +246,8 @@ class App(Adw.Application):
             self.mixer = None
             self._start_polling()
             return False
+        if self.args.demo:
+            babyface.demo_volumes(self.dev, self.cfg)
         self.mixer = Mixer(self.dev, self.cfg)
         self.mixer.listener = self.push
         self.mixer.toast = lambda text: self.push({"toast": {"text": text}})
@@ -456,12 +458,17 @@ class App(Adw.Application):
         if cmd == "hello":
             self.ready = True
             GLib.idle_add(self._after_ready)
+            if self.args.screenshot:   # fallback if the page's own signal is delayed
+                GLib.timeout_add(6000, lambda: self.dispatch({"cmd": "ready_to_shoot"}) and False)
             return self.full_state()
         if cmd == "page":
             self.set_page(msg["page"])
             return {"ok": True}
         if cmd == "ready_to_shoot":
-            if self.args.screenshot:
+            if self.args.screenshot and not getattr(self, "_shot_scheduled", False):
+                self._shot_scheduled = True
+                if self.args.eval:   # scripted interaction for visual checks (--demo only)
+                    self.web.evaluate_javascript(self.args.eval, -1, None, None, None, None, None)
                 GLib.timeout_add(int(self.args.wait), self._shoot)
             return {"ok": True}
         if cmd == "open_url":
@@ -573,9 +580,11 @@ def main(argv=None):
     parser.add_argument("--screenshot", metavar="PNG", help="render the window to a PNG and exit")
     parser.add_argument("--size", type=_size, metavar="WxH")
     parser.add_argument("--wait", type=int, default=900, metavar="MS", help="delay before a screenshot")
-    parser.add_argument("--state", metavar="JSON", help=argparse.SUPPRESS)
+    parser.add_argument("--eval", metavar="JS", help=argparse.SUPPRESS)
     parser.add_argument("--version", action="version", version=f"Audius {__version__}")
     args = parser.parse_args(argv)
+    if args.eval and not args.demo:
+        parser.error("--eval only runs with --demo")
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format="audius: %(message)s")
     app = App(args)
     return app.run([sys.argv[0]])

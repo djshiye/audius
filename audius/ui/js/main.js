@@ -17,6 +17,7 @@ const titlebar = document.getElementById("titlebar");
 let current = null;
 let offline = null;
 
+window.audiusState = state;   // handy in the inspector (--debug)
 window.audius = {
   receive(patch) {
     if (patch.toast) { toast(patch.toast.text); delete patch.toast; }
@@ -126,7 +127,7 @@ async function boot() {
   document.addEventListener("wheel", (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
   document.addEventListener("contextmenu", (e) => e.preventDefault());
   await document.fonts.ready;
-  requestAnimationFrame(() => requestAnimationFrame(() => send("ready_to_shoot")));
+  setTimeout(() => send("ready_to_shoot"), 250);   // a timer, not rAF: rAF pauses while the view is hidden
 }
 
 boot();

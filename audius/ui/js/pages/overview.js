@@ -60,9 +60,12 @@ function build() {
   clear(grid);
   clear(moreGrid);
   const hero = inputCard("AN1", true);
-  grid.append(hero.el, outputCard("PH3").el, outputCard("AN1").el);
+  const outs = [outputCard("PH3"), outputCard("AN1")];
   const others = ["AN2", "IN3", "IN4"].map((ch) => inputCard(ch, false));
+  cards.push(hero, ...outs, ...others);       // every card gets live updates
+  grid.append(hero.el, ...outs.map((c) => c.el));
   moreGrid.append(...others.map((c) => c.el));
+  cards.forEach((c) => c.meters && c.meters());
   more.querySelector(".more-summary").textContent = others.map((c) => c.name()).join(" · ");
   syncMore();
 }
