@@ -38,8 +38,13 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
    default *Analog Stereo* profile only capture 1/2 (Mic 1/2) and playback 1/2 exist. The DSP's
    monitor mix can't be measured at all.
 4. **Today's state** (2026-10-06): every active send is `65536` (+6 dB, alsamixer's "100%"), and every
-   `Main-Out` is `1` (≈ −90 dB). `alsa-state.service` resends that at every boot, which is why the
-   speakers are silent and the headphones only work after turning the knob.
+   `Main-Out` reads `1`. That `1` is not a level: it's a kernel bug (see `docs/KERNEL-BUG.md`). The
+   main outs were never written, the boot-time restore skips them for the same reason, and the
+   output volumes live entirely on the device (knob + its own memory). Audius treats them as
+   *unknown* until it sets them.
+5. **Kernel bug:** the quirk caches `index | value << 9` with a 10-bit index. Odd values written to a
+   crosspoint redirect later writes to `index + 512`. Audius only writes even values and locks any
+   crosspoint that already reads odd.
 
 ## 2. Safety rules (non-negotiable)
 
@@ -48,7 +53,8 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
   window was away (the knob may have moved), the first change **fades in from −60 dB over 0.7 s**
   instead of jumping. Nothing gets louder in one step.
 - Each output has a **user-defined volume ceiling** (default 0 dB).
-- Turning speakers on for the first time while they sit near silence starts them at **−40 dB**.
+- Turning speakers on while their volume is unknown or near silence starts them at **−40 dB**.
+- Only **even** raw values are ever written to volume controls (kernel bug workaround).
 - Turning an output off/on is done with its **sends**, not its volume, so it never fights the knob.
 - **48V asks first** (ribbon mics, pops). Undo and scenes never touch 48V or output volume.
 - "Resend everything" exists for a power-cycled device, skips 48V, and only includes volumes on request.
