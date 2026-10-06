@@ -188,6 +188,8 @@ class App(Adw.Application):
             self.meters = meters.DemoMeters(self._on_levels)
         else:
             self.meters = meters.Meters(self._on_levels)
+            self.meters.discover = lambda: pipewire.find_nodes(self.dev.card_index) if self.dev else None
+            self.meters.on_channels = lambda chs: self.push({"meters": {"channels": chs, "enabled": True}})
 
     # ------------------------------------------------------------------ lifecycle
     def do_startup(self):
@@ -310,8 +312,11 @@ class App(Adw.Application):
         if not self.cfg["prefs"].get("meters", True):
             return False
         surface = self.win.get_surface()
-        if surface is not None and isinstance(surface, Gdk.Toplevel):
-            if surface.get_state() & Gdk.ToplevelState.MINIMIZED:
+        if surface is not None and isinstance(surface, Gdk.Toplevel) and not self.args.screenshot:
+            # Wayland reports "suspended" when the window is minimised, on another
+            # workspace or fully covered; stop listening to the mic then.
+            hidden = Gdk.ToplevelState.MINIMIZED | getattr(Gdk.ToplevelState, "SUSPENDED", 0)
+            if surface.get_state() & hidden:
                 return False
         return True
 
