@@ -478,3 +478,12 @@ def demo_state():
         gain_ctl("AN1"): 26, p48_ctl("AN1"): 1,
     }
     return s   # output volumes read as 0: never written this boot, so unknown
+
+
+def demo_volumes(dev, cfg):
+    """--demo: pretend the volumes were set from Audius earlier (headphones -18, speakers -24 dB)."""
+    for out, db in (("PH3", -18.0), ("AN1", -24.0)):
+        cfg["volumes"].setdefault(out, db)
+        pair = ("PH3", "PH4") if out == "PH3" else ("AN1", "AN2")
+        for ch in pair:
+            dev.values[volume_ctl(ch)] = even(db_to_raw(cfg["volumes"][out]))

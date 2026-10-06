@@ -1,0 +1,56 @@
+name: Audius CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fedora:
+    name: Test and build RPM (Fedora 44)
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      # git first: without it checkout downloads a tarball and the commit
+      # count used for the RPM release number is unavailable.
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y rpm-build rpmdevtools rpmlint python3-devel python3-gobject alsa-lib \
+            desktop-file-utils appstream tar
+
+      - name: Syntax check
+        run: python3 -m compileall -q audius tools build-aux
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Build RPM
+        run: |
+          VERSION=$(sed -n 's/^Version: *//p' build-aux/audius.spec)
+          git config --global --add safe.directory "$PWD"
+          BUILD=$(git rev-list --count HEAD)
+          rpmdev-setuptree
+          git archive --format=tar.gz --prefix="audius-${VERSION}/" \
+            -o ~/rpmbuild/SOURCES/audius-${VERSION}.tar.gz HEAD
+          rpmbuild -ba --define "release_suffix .$BUILD" build-aux/audius.spec
+          rpmlint build-aux/audius.spec ~/rpmbuild/RPMS/noarch/audius-*.rpm || true
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: audius-rpm-fedora-44
+          path: ~/rpmbuild/RPMS/noarch/audius-*.rpm
+          if-no-files-found: error

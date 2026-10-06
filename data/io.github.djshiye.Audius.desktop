@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Audius
+GenericName=Audio Interface Control
+Comment=Gain, monitoring and routing for the RME Babyface Pro FS
+Exec=audius
+Icon=io.github.djshiye.Audius
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Mixer;
+Keywords=Babyface;RME;TotalMix;mixer;interface;gain;phantom;48V;monitoring;headphones;speakers;
+StartupNotify=true
+StartupWMClass=io.github.djshiye.Audius

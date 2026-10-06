@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.djshiye.Audius</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Audius</name>
+  <summary>Gain, monitoring and routing for the RME Babyface Pro FS</summary>
+  <developer id="io.github.djshiye">
+    <name>Dino Klisura</name>
+  </developer>
+  <description>
+    <p>
+      A control panel for the RME Babyface Pro FS in Class Compliant mode, where RME's TotalMix FX
+      isn't available. Set mic gain while watching a live level ring, switch between headphones and
+      speakers, balance what you hear, and reach the full routing matrix when you need it.
+    </p>
+    <ul>
+      <li>Gain dial with live levels, 48V and PAD</li>
+      <li>Listen on headphones, speakers or both</li>
+      <li>Volume changes that respect the hardware knob and fade in safely</li>
+      <li>A TotalMix-style mixer per output, a routing grid, scenes and undo</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.djshiye.Audius.desktop</launchable>
+  <url type="homepage">https://github.com/djshiye/audius</url>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <releases>
+    <release version="1.0.0" date="2026-10-07">
+      <description><p>First release.</p></description>
+    </release>
+  </releases>
+</component>
