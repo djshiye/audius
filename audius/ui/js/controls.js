@@ -58,7 +58,7 @@ function drag(el, { start, move, end }) {
     const ctx = start(e);
     if (!ctx) return;
     e.preventDefault();
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch (_) { /* synthetic or already-released pointer */ }
     el.classList.add("dragging");
     const x0 = e.clientX, y0 = e.clientY;
     const onMove = (ev) => move(ev, ctx, ev.clientX - x0, ev.clientY - y0);
