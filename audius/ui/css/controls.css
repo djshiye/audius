@@ -221,7 +221,8 @@
   background: linear-gradient(0deg, var(--level-green) 0 69%, var(--level-amber) 71% 91%, var(--level-red) 93%);
 }
 .meter-v .cover {
-  position: absolute; inset: 0; background: var(--led-off);
+  position: absolute; inset: 0;
+  background: linear-gradient(var(--led-off), var(--led-off)), var(--surface);   /* opaque: hides the unlit part */
   transform-origin: top; transform: scaleY(1);
 }
 .meter-v::after {      /* LED segment gaps */
@@ -232,7 +233,6 @@
   position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--text-2); z-index: 2;
   transform: translateY(0); opacity: 0;
 }
-.meter-v .covermask { position: absolute; inset: 0; background: var(--surface); z-index: -1; }
 .meters { display: flex; gap: 2px; }
 .meter-v.na { background: var(--fill); }
 .meter-v.na .cover { display: none; }

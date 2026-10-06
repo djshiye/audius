@@ -161,6 +161,10 @@ class Mixer:
             return int(mem.get(ctl, 0))
         return int(self.dev.values.get(ctl, 0))
 
+    def _logical_ctl(self, ctl):
+        _, o = self._send_index[ctl]
+        return self._logical(ctl, self._out_of[o])
+
     def _send_ctls(self, s, out):
         """(direct L, direct R, cross L->R, cross R->L) controls for a strip into an output pair."""
         o_l, o_r = OUT_PAIRS[out]
@@ -629,7 +633,7 @@ class Mixer:
             "listen": self.listen_mode(),
             "strips": self.strips_view(),
             "sends": {s.id: {o: self.send_state(s, o) for o in OUT_PAIRS} for s in self.strips()},
-            "raw": {c: self.dev.values[c] for c in bf.SEND_CTLS},
+            "raw": {c: self._logical_ctl(c) for c in bf.SEND_CTLS},   # through "output off" memory
             "overview_sources": self.cfg["overview_sources"],
             "scenes": [{"id": sc["id"], "name": sc["name"], "created": sc["created"]} for sc in self.cfg["scenes"]],
             "prefs": self.prefs,
@@ -704,7 +708,7 @@ class Mixer:
         patch = {}
         sends_ctls = [c for c in dirty if c in self._send_index]
         if sends_ctls:
-            patch["raw"] = {c: self.dev.values[c] for c in sends_ctls}
+            patch["raw"] = {c: self._logical_ctl(c) for c in sends_ctls}
         structural = dirty & {"strips", "prefs"}
         if structural:
             patch["strips"] = self.strips_view()
