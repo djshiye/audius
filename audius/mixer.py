@@ -350,8 +350,11 @@ class Mixer:
                     self._dirty.add(c)
         elif on and out in mem:
             stored = mem.pop(out)
+            dims = self.cfg["dim"]
+            if dims and self.output_visible(out):     # DIM covers what you start hearing
+                dims[out] = dict(stored)
             for c, v in stored.items():
-                self.dev.ramp(c, int(v), SWITCH_FADE, start=0)
+                self.dev.ramp(c, self._dim_value(v) if out in dims else int(v), SWITCH_FADE, start=0)
                 self._dirty.add(c)
         self._dirty.add("outputs")
         self.cfg.changed()
@@ -579,6 +582,10 @@ class Mixer:
         dims = self.cfg["dim"]
         for out in [o for o in dims if o in state["output_off"]]:
             del dims[out]          # coming back switched off: its sends go to 0 below
+        if dims:                   # coming back on while DIM is active: dimmed too
+            for out in self.cfg["output_off"]:
+                if out not in state["output_off"] and self.output_visible(out):
+                    dims[out] = {}
         for c, v in state["sends"].items():
             v = int(v)
             _, o = self._send_index[c]

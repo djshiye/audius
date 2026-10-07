@@ -188,6 +188,23 @@ class MixerModel(unittest.TestCase):
         self.m.set_output_on("PH3", True)
         self.assertEqual(self.dev.values[comp], bf.MAX_RAW)
 
+    def test_dim_covers_outputs_switched_back_on(self):
+        speakers = bf.send_ctl("pb:AN1", "AN1")
+        self.m.set_listen("both")
+        self.m.set_dim_all(True)
+        self.m.set_listen("headphones")
+        self.assertEqual(self.dev.values[speakers], 0)
+        self.m.set_listen("both")
+        self.assertTrue(self.m.dimmed("AN1"))
+        self.assertEqual(self.dev.values[speakers], bf.even(round(bf.MAX_RAW * 0.1)))
+        self.m.undo()                                      # speakers off again
+        self.assertEqual(self.dev.values[speakers], 0)
+        self.m.redo()                                      # and back on, still dimmed
+        self.assertTrue(self.m.dimmed("AN1"))
+        self.assertEqual(self.dev.values[speakers], bf.even(round(bf.MAX_RAW * 0.1)))
+        self.m.set_dim_all(False)
+        self.assertEqual(self.dev.values[speakers], bf.MAX_RAW)
+
     def test_dim_external_change(self):
         comp = bf.send_ctl("pb:AN1", "PH3")
         self.m.set_dim("PH3", True)
