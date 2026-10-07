@@ -137,6 +137,66 @@ class MixerModel(unittest.TestCase):
         self.m.set_output_on("PH3", True)
         self.assertEqual(self.dev.values[c], bf.even(bf.db_to_raw(-10)))
 
+    def test_dim(self):
+        comp, mic = bf.send_ctl("pb:AN1", "PH3"), bf.send_ctl("in:AN1", "PH4")
+        speakers = bf.send_ctl("pb:AN1", "AN1")
+        self.m.set_dim_all(True)
+        self.assertTrue(self.m.dimmed("PH3") and self.m.dimmed("AN1"))
+        self.assertEqual(self.dev.values[comp], bf.even(round(bf.MAX_RAW * 0.1)))   # -20 dB
+        self.assertEqual(self.dev.values[comp] % 2, 0)
+        self.assertEqual(self.dev.values[speakers], self.dev.values[comp])
+        self.assertAlmostEqual(self.st("pb:AN1", "PH3")["db"], 6.02, places=2)       # faders don't move
+        # adjusting while dimmed stores the real level and writes it dimmed
+        self.m.set_send("pb:AN1", "PH3", db=0)
+        self.assertEqual(self.dev.values[comp], bf.even(round(32768 * 0.1)))
+        self.assertAlmostEqual(self.st("pb:AN1", "PH3")["db"], 0.0, places=2)
+        # DIM is not an undo step, and undo keeps DIM on
+        self.m.undo()
+        self.assertTrue(self.m.dimmed("PH3"))
+        self.assertAlmostEqual(self.st("pb:AN1", "PH3")["db"], 6.02, places=2)
+        self.assertEqual(self.dev.values[comp], bf.even(round(bf.MAX_RAW * 0.1)))
+        self.assertFalse(self.m.undo_view()["can_undo"])
+        # a deeper dim moves the hardware, not the faders
+        self.m.set_pref("dim_db", -40)
+        self.assertEqual(self.dev.values[mic], bf.even(round(bf.MAX_RAW * 0.01)))
+        self.m.set_dim_all(False)
+        self.assertEqual(self.dev.values[comp], bf.MAX_RAW)
+        self.assertEqual(self.dev.values[mic], bf.MAX_RAW)
+        self.assertEqual(self.cfg["dim"], {})
+
+    def test_dim_with_mute_off_and_scenes(self):
+        comp = bf.send_ctl("pb:AN1", "PH3")
+        mic = bf.send_ctl("in:AN1", "PH3")
+        sid = self.m.save_scene("full")
+        self.m.set_dim("PH3", True)
+        self.m.set_send_mute("in:AN1", "PH3", True)
+        self.assertEqual(self.dev.values[mic], 0)
+        self.m.set_send_mute("in:AN1", "PH3", False)
+        self.assertEqual(self.dev.values[mic], bf.even(round(bf.MAX_RAW * 0.1)))
+        # a scene saved while dimmed holds the real levels
+        self.assertEqual(self.m._mix_state()["sends"][comp], bf.MAX_RAW)
+        self.m.set_send("pb:AN1", "PH3", db=None)
+        self.m.recall_scene(sid)
+        self.assertTrue(self.m.dimmed("PH3"))
+        self.assertEqual(self.dev.values[comp], bf.even(round(bf.MAX_RAW * 0.1)))
+        # switching off ends DIM; switching on comes back at full level
+        self.m.set_output_on("PH3", False)
+        self.assertFalse(self.m.dimmed("PH3"))
+        self.assertEqual(self.dev.values[comp], 0)
+        self.m.set_dim("PH3", True)                       # nothing to dim while off
+        self.assertFalse(self.m.dimmed("PH3"))
+        self.m.set_output_on("PH3", True)
+        self.assertEqual(self.dev.values[comp], bf.MAX_RAW)
+
+    def test_dim_external_change(self):
+        comp = bf.send_ctl("pb:AN1", "PH3")
+        self.m.set_dim("PH3", True)
+        self.dev.values[comp] = 1000                     # alsamixer, while dimmed
+        self.m.on_device_change({comp: 1000})
+        self.assertEqual(self.cfg["dim"]["PH3"][comp], 10000)
+        self.m.set_dim("PH3", False)
+        self.assertEqual(self.dev.values[comp], 10000)
+
     def test_listen_on_speakers_starts_quiet(self):
         self.m.set_listen("speakers")
         self.assertFalse(self.m.output_on("PH3"))

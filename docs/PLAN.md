@@ -55,7 +55,7 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
 - Each output has a **user-defined volume ceiling** (default 0 dB).
 - Turning speakers on while their volume is unknown or near silence starts them at **−40 dB**.
 - Only **even** raw values are ever written to volume controls (kernel bug workaround).
-- Turning an output off/on is done with its **sends**, not its volume, so it never fights the knob.
+- Turning an output off/on, and DIM, are done with its **sends**, not its volume, so they never fight the knob.
 - **48V asks first** (ribbon mics, pops). Undo and scenes never touch 48V or output volume.
 - "Resend everything" exists for a power-cycled device, skips 48V, and only includes volumes on request.
 
@@ -84,7 +84,7 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
   per control and runs dB-linear ramps, so dragging never blocks the UI on USB transfers.
 - `mixer.py`: the model the UI talks to. Stereo pairs with a balance-law pan (lossless decode of any
   L/R pair; a mono mic at equal L/R is "centred" at its level), send mute, output on/off memory,
-  "Listen on", volume takeover and ceilings, link/unlink, scenes, gesture-grouped undo/redo.
+  "Listen on", DIM, volume takeover and ceilings, link/unlink, scenes, gesture-grouped undo/redo.
 - `meters.py`: `pipewiresrc ! level` pipelines for the Babyface source and the sink monitor. They run only
   while the window is visible; GNOME's microphone indicator is expected while they run.
 - `config.py`: `~/.config/audius/config.json` (names, links, memories, scenes, prefs, limits).
@@ -96,6 +96,8 @@ Navigation: **Overview · Mixer · Routing · Device** (native segmented control
 
 **Overview** (daily use)
 - *Listen on: Headphones · Speakers · Both*, the one thing the hardware makes hard.
+- *Dim* (Ctrl+D): lowers every output you hear by 20 dB (Device page: 10–40) through the sends;
+  faders don't move. Remembered across restarts; not an undo step, never stored in scenes.
 - *Mic 1*: the signature gain dial with the live level wrapped around it, an "ideal peaks" zone
   (RME's advice: peaks around −3 dBFS), latched clip warning, 48V (asks first) and PAD.
 - *Headphones* and *Speakers* cards: volume (knob-aware), and "what you hear": Computer, Mic 1… with
@@ -148,4 +150,4 @@ Private repo `audius`. `install.sh` installs for the current user (no sudo): the
 - Separate *Speakers* and *Headphones* sound outputs for apps (Pro Audio profile + loopback nodes),
   which also unlocks meters for all 12 inputs. Opt-in only, since it changes the desktop's audio setup.
 - A compact quick panel (GNOME Shell extension) for Listen on + volume.
-- Talkback/DIM shortcuts mirroring the device keys.
+- Talkback (momentary mic into the headphones). DIM shipped 2026-10-07.

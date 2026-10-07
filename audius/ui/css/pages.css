@@ -39,7 +39,8 @@
 /* An output that's off keeps readable labels; only the signal colour goes grey. */
 .out-card.is-off .slider .fill { background: var(--fill-3); }
 .out-card.is-off .slider .cmeter { visibility: hidden; }
-.out-card .card-head .btn { margin-left: auto; }
+.out-card .card-head .btn, .out-card .card-head .pill { margin-left: auto; }
+.out-card .card-head .pill + .btn { margin-left: 8px; }
 
 .vol-row, .mix-row { display: flex; flex-direction: column; gap: 2px; }
 .row-top { display: flex; align-items: center; gap: 10px; min-height: 26px; }

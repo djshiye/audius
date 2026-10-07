@@ -4,6 +4,7 @@ import { call, send } from "./bridge.js";
 import * as meters from "./meters.js";
 import { h, ico, clear, toast, closePopover } from "./ui.js";
 import { fmtRate } from "./dsp.js";
+import { toggleDim } from "./common.js";
 import * as overview from "./pages/overview.js";
 import * as mixer from "./pages/mixer.js";
 import * as routing from "./pages/routing.js";
@@ -119,6 +120,9 @@ function keys(e) {
   } else if (mod && e.key === "y") {
     e.preventDefault();
     send("redo");
+  } else if (mod && !e.shiftKey && (e.key === "d" || e.key === "D")) {
+    e.preventDefault();
+    toggleDim();
   } else if (mod && e.shiftKey && ["H", "S", "B"].includes(e.key.toUpperCase())) {
     e.preventDefault();
     send("listen", { mode: { H: "headphones", S: "speakers", B: "both" }[e.key.toUpperCase()] });
