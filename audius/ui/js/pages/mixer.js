@@ -5,7 +5,7 @@ import { send, frameSender } from "../bridge.js";
 import { Segmented, VFader, Pan, MeterV, faderScale, toggleSwitch } from "../controls.js";
 import { fmtDb, fmtPan, clamp } from "../dsp.js";
 import * as meters from "../meters.js";
-import { undoGroup, scenesButton } from "../common.js";
+import { undoGroup, scenesButton, dimButton } from "../common.js";
 
 const SUBTITLE = {
   PH3: "Each fader sets how loud a source is in your headphones.",
@@ -26,7 +26,7 @@ export function mount(el) {
   seg = new Segmented({ items: outItems(), value: current, label: "Mixing for", onChange: pick });
   sub = h("div", { class: "page-sub" });
   root.append(h("div", { class: "toolbar" },
-    h("span", { class: "toolbar-label" }, "Mixing for"), seg.el, h("div", { class: "spacer" }), undoGroup(), scenesButton()), sub);
+    h("span", { class: "toolbar-label" }, "Mixing for"), seg.el, dimButton(), h("div", { class: "spacer" }), undoGroup(), scenesButton()), sub);
   area = h("div", { class: "mixer-area" });
   root.append(area);
   let pending = 0;

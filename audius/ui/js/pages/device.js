@@ -169,11 +169,17 @@ function safetyCard() {
     items: [-50, -40, -30, -20].map((v) => ({ value: v, label: fmtDb(v, { digits: 0, unit: false }) })),
     onChange: (v) => send("pref", { key: "speaker_start_db", value: v }),
   });
+  const dim = new Segmented({
+    size: "sm", label: "Dim lowers by", value: p.dim_db ?? -20,
+    items: [-10, -20, -30, -40].map((v) => ({ value: v, label: fmtDb(v, { digits: 0, unit: false }) })),
+    onChange: (v) => send("pref", { key: "dim_db", value: v }),
+  });
   return settingsCard("Volume safety", [
     row("Headphones ceiling", "The loudest Audius will set your headphones, in dB.", ceilingControl("PH3")),
     row("Speakers ceiling", "The loudest Audius will set your speakers, in dB.", ceilingControl("AN1")),
     row("Fade in after the knob", "Audius can’t see the knob, so after you use it the next volume change here starts quiet and fades in.", fade),
     row("Speakers start at", "Where the speakers begin when you switch to them from silence.", start.el),
+    row("Dim lowers by", "How far Dim (Ctrl+D) turns down what you hear, in dB. The Babyface’s own DIM key uses 20.", dim.el),
   ]);
 }
 
@@ -240,7 +246,8 @@ function aboutCard() {
     h("p", { class: "setting-desc" }, "A control panel for the RME Babyface Pro FS in Class Compliant mode, built on the Linux kernel’s Babyface Pro mixer driver. RME, Babyface and TotalMix are trademarks of RME Audio AG; Audius is not affiliated with RME."),
     h("div", { class: "kbd-list" },
       kbd("Ctrl", "1–4", "Switch pages"), kbd("Ctrl", "Z", "Undo"), kbd("Ctrl", "Shift", "Z", "Redo"),
-      kbd("Ctrl", "Shift", "H / S / B", "Listen on headphones, speakers, both"), kbd("Shift", "drag", "Fine adjustment"),
+      kbd("Ctrl", "Shift", "H / S / B", "Listen on headphones, speakers, both"),
+      kbd("Ctrl", "D", "Dim"), kbd("Shift", "drag", "Fine adjustment"),
       kbd("Alt", "click", "Fader to 0 dB"), kbd("Double-click", "Type a value")));
 }
 

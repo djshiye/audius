@@ -344,6 +344,8 @@ class Babyface(Device):
         self._writer.ramp(name, value, duration, start)
 
     def ramp_linear(self, name, value, duration):
+        if name in self.poisoned:
+            return
         value = self._check(name, value)
         self.values[name] = value
         self._writer.ramp(name, value, duration, linear=True)

@@ -28,6 +28,7 @@ DEFAULTS = {
     "pan_memory": {},       # "strip>outpair" -> pan, kept when a send is at -inf
     "send_mute": {},        # "strip>outpair" -> {control: raw} to restore on unmute
     "output_off": {},       # outpair -> {control: raw} to restore when switched on
+    "dim": {},              # outpair -> {control: raw} undimmed sends while DIM is on
     "limits": {"AN1": 0.0, "PH3": 0.0, "AS1": 0.0, "ADAT3": 0.0, "ADAT5": 0.0, "ADAT7": 0.0},
     "volumes": {},          # outpair -> last volume Audius set (dB); the device can't be read back
     "scenes": [],
@@ -38,6 +39,7 @@ DEFAULTS = {
         "takeover_fade": True,     # fade in after the hardware knob may have moved a volume
         "speaker_start_db": -40.0,
         "knob_outputs": ["PH3"],   # outputs whose volume usually lives on the device knob
+        "dim_db": -20.0,           # how far DIM lowers an output (the device key's default)
     },
     "overview_sources": {          # outpair -> strips shown on the Overview cards
         "PH3": ["pb:AN1", "in:AN1"],
@@ -51,7 +53,8 @@ DEFAULTS = {
 def _merge(base, extra):
     for k, v in extra.items():
         if isinstance(v, dict) and isinstance(base.get(k), dict) and k not in ("names", "pan_memory",
-                                                                               "send_mute", "output_off", "volumes"):
+                                                                               "send_mute", "output_off", "dim",
+                                                                               "volumes"):
             _merge(base[k], v)
         else:
             base[k] = v

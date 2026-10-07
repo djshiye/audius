@@ -20,7 +20,7 @@ TAKEOVER_WINDOW = 45.0      # s without an Audius write before the knob may have
 TAKEOVER_FADE = 0.7         # s fade-in from TAKEOVER_FLOOR_DB
 TAKEOVER_FLOOR_DB = -60.0
 AUDIBLE_DB = -60.0          # below this an output counts as silent
-SWITCH_FADE = 0.15          # s for on/off and mutes
+SWITCH_FADE = 0.15          # s for on/off, mutes and DIM
 RECALL_FADE = 0.35          # s for scenes and undo
 GAIN_STEP_TIME = 0.012      # s per gain step when gain jumps
 
@@ -155,8 +155,10 @@ class Mixer:
 
     # ------------------------------------------------------------------ logical values
     def _logical(self, ctl, out):
-        """What a send is set to, looking through 'output off' memory."""
+        """What a send is set to, looking through 'output off' and DIM memory."""
         mem = self.cfg["output_off"].get(out)
+        if mem is None:
+            mem = self.cfg["dim"].get(out)
         if mem is not None:
             return int(mem.get(ctl, 0))
         return int(self.dev.values.get(ctl, 0))
@@ -195,8 +197,23 @@ class Mixer:
         level, pan, muted = self._send_raw(s, out)
         return {"db": db_or_none(level), "pan": round(pan, 3), "muted": muted}
 
+    def _undimmed(self, ctl):
+        """A send's hardware value, as it would be without DIM (scenes and undo store these)."""
+        _, o = self._send_index[ctl]
+        mem = self.cfg["dim"].get(self._out_of[o])
+        return int(mem.get(ctl, 0)) if mem is not None else int(self.dev.values.get(ctl, 0))
+
     def output_on(self, out):
         return out not in self.cfg["output_off"]
+
+    def dimmed(self, out):
+        return out in self.cfg["dim"]
+
+    def _dim_factor(self):
+        return 10 ** (float(self.prefs.get("dim_db", -20.0)) / 20)
+
+    def _dim_value(self, raw):
+        return bf.even(int(round(int(raw) * self._dim_factor())))
 
     def volume_raw(self, out):
         o_l, o_r = OUT_PAIRS[out]
@@ -239,6 +256,7 @@ class Mixer:
         key = self._key(s, out) if s is not None else None
         muted = self.cfg["send_mute"].get(key) if key else None
         off = self.cfg["output_off"].get(out)
+        dim = self.cfg["dim"].get(out)
         for ctl, value in targets.items():
             if ctl in self.dev.poisoned:
                 continue
@@ -250,10 +268,17 @@ class Mixer:
                     off[ctl] = value
                 else:
                     off.pop(ctl, None)
-            elif fade > 0:
-                self.dev.ramp(ctl, value, fade, start=start)
             else:
-                self.dev.set(ctl, value)
+                if dim is not None:
+                    if value:
+                        dim[ctl] = value
+                    else:
+                        dim.pop(ctl, None)
+                    value = self._dim_value(value)
+                if fade > 0:
+                    self.dev.ramp(ctl, value, fade, start=start)
+                else:
+                    self.dev.set(ctl, value)
             self._dirty.add(ctl)
         self.cfg.changed()
 
@@ -314,11 +339,15 @@ class Mixer:
         mem = self.cfg["output_off"]
         ctls = [c for c in ctls if c not in self.dev.poisoned]
         if not on and out not in mem:
-            stored = {c: self.dev.values[c] for c in ctls if self.dev.values[c] > 0}
-            mem[out] = stored
-            for c in stored:
-                self.dev.ramp(c, 0, SWITCH_FADE)
-                self._dirty.add(c)
+            dim = self.cfg["dim"].pop(out, None)     # off ends DIM; on comes back undimmed
+            if dim is not None:
+                mem[out] = {c: v for c, v in dim.items() if c in ctls}
+            else:
+                mem[out] = {c: self.dev.values[c] for c in ctls if self.dev.values[c] > 0}
+            for c in ctls:
+                if self.dev.values[c] > 0:
+                    self.dev.ramp(c, 0, SWITCH_FADE)
+                    self._dirty.add(c)
         elif on and out in mem:
             stored = mem.pop(out)
             for c, v in stored.items():
@@ -328,6 +357,43 @@ class Mixer:
         self.cfg.changed()
         if emit:
             self._emit()
+
+    def set_dim(self, out, on, emit=True):
+        """Lower an output by prefs.dim_db through its sends, like the device's DIM key.
+        Not an undo step and not part of scenes: it's a monitoring state, like mute on a desk."""
+        dim = self.cfg["dim"]
+        o_l, o_r = OUT_PAIRS[out]
+        ctls = [bf.send_ctl(src, o) for src in bf.ALL_SOURCES for o in (o_l, o_r)]
+        if on and out not in dim and self.output_on(out):
+            dim[out] = {c: self.dev.values[c] for c in ctls if self.dev.values[c] > 0}
+            targets = {c: self._dim_value(v) for c, v in dim[out].items()}
+        elif not on and out in dim:
+            targets = dim.pop(out)
+        else:
+            return
+        for c, v in targets.items():
+            if c not in self.dev.poisoned:
+                self.dev.ramp(c, int(v), SWITCH_FADE)
+                self._dirty.add(c)
+        self._dirty.add("outputs")
+        self.cfg.changed()
+        if emit:
+            self._emit()
+
+    def set_dim_all(self, on):
+        """DIM what you hear: every visible output that's on, or undim them all."""
+        for out in OUT_PAIRS:
+            if not on or self.output_visible(out):
+                self.set_dim(out, on, emit=False)
+        self._emit()
+
+    def _redim(self):
+        """dim_db changed: move dimmed outputs to the new depth."""
+        for mem in self.cfg["dim"].values():
+            for c, v in mem.items():
+                if c not in self.dev.poisoned:
+                    self.dev.ramp(c, self._dim_value(v), SWITCH_FADE)
+                    self._dirty.add(c)
 
     def set_listen(self, mode, gesture=None):
         """Listen on 'headphones', 'speakers' or 'both'."""
@@ -490,7 +556,11 @@ class Mixer:
     def set_pref(self, key, value):
         if key not in self.prefs and key not in ("knob_outputs",):
             raise KeyError(key)
+        if key == "dim_db":
+            value = max(-60.0, min(-3.0, float(value)))
         self.prefs[key] = value
+        if key == "dim_db":
+            self._redim()
         self.cfg.changed()
         self._dirty.update({"prefs", "strips", "outputs"})
         self._emit()
@@ -498,7 +568,7 @@ class Mixer:
     # ------------------------------------------------------------------ scenes
     def _mix_state(self):
         return {
-            "sends": {c: self.dev.values[c] for c in bf.SEND_CTLS},
+            "sends": {c: self._undimmed(c) for c in bf.SEND_CTLS},
             "links": copy.deepcopy(self.cfg["links"]),
             "output_off": copy.deepcopy(self.cfg["output_off"]),
             "send_mute": copy.deepcopy(self.cfg["send_mute"]),
@@ -506,9 +576,21 @@ class Mixer:
         }
 
     def _restore_mix(self, state, fade=RECALL_FADE):
+        dims = self.cfg["dim"]
+        for out in [o for o in dims if o in state["output_off"]]:
+            del dims[out]          # coming back switched off: its sends go to 0 below
         for c, v in state["sends"].items():
+            v = int(v)
+            _, o = self._send_index[c]
+            dim = dims.get(self._out_of[o])
+            if dim is not None:    # DIM stays on through recall and undo
+                if v:
+                    dim[c] = v
+                else:
+                    dim.pop(c, None)
+                v = self._dim_value(v)
             if self.dev.values.get(c) != v:
-                self.dev.ramp(c, int(v), fade, start=0 if self.dev.values.get(c, 0) == 0 else None)
+                self.dev.ramp(c, v, fade, start=0 if self.dev.values.get(c, 0) == 0 else None)
                 self._dirty.add(c)
         for k in ("links", "output_off", "send_mute", "pan_memory"):
             self.cfg.data[k] = copy.deepcopy(state[k])
@@ -631,9 +713,19 @@ class Mixer:
     def on_device_change(self, changed):
         for ctl, value in changed.items():
             self._dirty.add(ctl)
-            if ctl in self._send_index and value > 0:
-                _, o = self._send_index[ctl]
-                out = self._out_of[o]
+            if ctl not in self._send_index:
+                continue
+            _, o = self._send_index[ctl]
+            out = self._out_of[o]
+            dim = self.cfg["dim"].get(out)
+            if dim is not None:
+                # Set elsewhere while dimmed: keep it, as a dimmed level.
+                logical = bf.even(min(bf.MAX_RAW, int(round(value / self._dim_factor()))))
+                if logical:
+                    dim[ctl] = logical
+                else:
+                    dim.pop(ctl, None)
+            if value > 0:
                 if out in self.cfg["output_off"]:
                     del self.cfg["output_off"][out]      # someone switched it on elsewhere
                     self._dirty.add("outputs")
@@ -694,7 +786,8 @@ class Mixer:
             out.append({
                 "id": o, "channels": list(pair), "name": self.cfg["names"].get(o) or name, "default_name": name,
                 "detail": detail, "kind": kind, "visible": self.output_visible(o), "on": self.output_on(o),
-                "audible": self.audible(o), "volume_db": self.volume_db(o), "volume_known": self.volume_known(o),
+                "audible": self.audible(o), "dimmed": self.dimmed(o),
+                "volume_db": self.volume_db(o), "volume_known": self.volume_known(o),
                 "balance": round(balance(left, right) or 0.0, 3), "volume_fresh": self.volume_fresh(o),
                 "limit_db": float(self.cfg["limits"].get(o, 0.0)),
                 "knob": o in self.prefs.get("knob_outputs", ["PH3"]),

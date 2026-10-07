@@ -5,7 +5,7 @@ import { send, frameSender } from "../bridge.js";
 import { Segmented, Slider, Dial, pill } from "../controls.js";
 import { fmtDb, fmtGain } from "../dsp.js";
 import * as meters from "../meters.js";
-import { undoGroup, scenesButton } from "../common.js";
+import { undoGroup, scenesButton, dimButton } from "../common.js";
 
 const MIX_TITLES = { PH3: "In your headphones", AN1: "From your speakers" };
 const stripIcon = (s) => (s.kind === "pb" ? "computer" : s.channels[0].startsWith("AN") ? "mic"
@@ -27,7 +27,7 @@ export function mount(el) {
     onChange: (v) => send("listen", { mode: v }),
   });
   root.append(h("div", { class: "toolbar" },
-    h("span", { class: "toolbar-label" }, "Listen on"), listen.el,
+    h("span", { class: "toolbar-label" }, "Listen on"), listen.el, dimButton(),
     h("div", { class: "spacer" }), undoGroup(), scenesButton()));
   grid = h("div", { class: "ov-grid" });
   moreGrid = h("div", { class: "more-grid" });
@@ -186,9 +186,11 @@ function outputCard(outId) {
   renameable(title, { get: () => output(outId).name, set: (v) => send("rename", { id: outId, name: v }) });
   const offBtn = h("button", { class: "btn small", hidden: true, onclick: () => send("output_on", { out: outId, on: true }) },
     ico("power"), "Turn On");
+  const dimPill = h("button", { class: "pill dim-pill", "aria-pressed": "true", hidden: true,
+    title: "Back to full level", onclick: () => send("dim", { out: outId, on: false }) }, h("span", { class: "led" }), "Dimmed");
   const head = h("div", { class: "card-head" },
     h("div", { class: "glyph-tile" }, ico(o0.kind === "speakers" ? "speaker" : o0.kind === "headphones" ? "headphones" : "optical")),
-    h("div", { class: "titles" }, title, h("div", { class: "card-sub" }, o0.detail)), offBtn);
+    h("div", { class: "titles" }, title, h("div", { class: "card-sub" }, o0.detail)), dimPill, offBtn);
 
   // volume
   const volSender = frameSender((a) => send("volume", a));
@@ -236,6 +238,8 @@ function outputCard(outId) {
     title.textContent = o.name;
     el.classList.toggle("is-off", !o.on);
     offBtn.hidden = o.on;
+    dimPill.hidden = !o.dimmed;
+    dimPill.lastChild.textContent = `Dimmed ${fmtDb(state.prefs.dim_db ?? -20, { digits: 0 })}`;
     vol.setMax(o.limit_db);
     const unknown = !o.volume_known;
     vol.el.classList.toggle("ghost", unknown && !vol.dragging);
@@ -265,7 +269,8 @@ function mixRow(s, outId, container) {
   const st0 = sendOf(s.id, outId);
   const slider = new Slider({
     db: st0.db, label: `${s.name} in ${output(outId).name}`,
-    cmeter: { channels: () => s.meters, offset: () => slider.db },
+    cmeter: { channels: () => s.meters, offset: () => (slider.db === null ? null
+      : slider.db + (output(outId).dimmed ? (state.prefs.dim_db ?? -20) : 0)) },   // what you actually hear
     onInput: (db, g) => { value.textContent = fmtDb(db); sender({ strip: s.id, out: outId, db, gesture: g }); },
     onEnd: () => { sender.flush(); send("end_gesture"); },
   });

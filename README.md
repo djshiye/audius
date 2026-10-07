@@ -11,6 +11,8 @@ headphones or speakers, balance what you hear, and reach the full routing matrix
 **Overview**: the everyday screen.
 - **Listen on Headphones · Speakers · Both.** One switch instead of hunting through crosspoints.
   Switching to speakers from silence starts them at a safe −40 dB.
+- **Dim** (`Ctrl+D`), like the DIM key on the Babyface: what you hear drops 20 dB (adjustable)
+  until you press it again. Your faders stay where they are.
 - **Mic gain dial** modelled on the Babyface's own encoder, with the live input level wrapped around
   it as LEDs, a bracket where RME says your loudest peaks should land (−12 to −3 dBFS), a latched
   clip warning, **48V** (asks first) and **PAD**.

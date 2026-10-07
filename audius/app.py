@@ -512,6 +512,11 @@ class App(Adw.Application):
             m.set_output_on(msg["out"], bool(msg["on"]), gesture=g)
         elif cmd == "listen":
             m.set_listen(msg["mode"])
+        elif cmd == "dim":
+            if msg.get("out"):
+                m.set_dim(msg["out"], bool(msg["on"]))
+            else:
+                m.set_dim_all(bool(msg["on"]))
         elif cmd == "gain":
             m.set_gain(msg["ch"], float(msg["db"]), gesture=g)
         elif cmd == "p48":

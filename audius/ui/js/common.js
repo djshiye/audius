@@ -1,7 +1,26 @@
-// Toolbar pieces shared by pages: undo/redo and scenes.
+// Toolbar pieces shared by pages: DIM, undo/redo and scenes.
 import { h, ico, menu, popover, closePopover, toast, inlineEdit } from "./ui.js";
 import { state, subscribe } from "./store.js";
 import { call, send } from "./bridge.js";
+import { fmtDb } from "./dsp.js";
+
+export const anyDimmed = () => (state.outputs || []).some((o) => o.dimmed);
+export const toggleDim = () => send("dim", { on: !anyDimmed() });
+
+// Like the DIM key on the Babyface: what you hear drops by a set amount until you press it again.
+export function dimButton() {
+  const btn = h("button", { class: "pill dim-pill", "aria-pressed": "false", onclick: toggleDim },
+    h("span", { class: "led" }), "Dim");
+  const sync = () => {
+    const on = anyDimmed();
+    btn.setAttribute("aria-pressed", String(on));
+    const depth = fmtDb(state.prefs?.dim_db ?? -20, { digits: 0 });
+    btn.title = on ? "Back to full level (Ctrl+D)" : `Lower what you hear by ${depth.replace("−", "")} (Ctrl+D)`;
+  };
+  subscribe(["outputs", "prefs"], sync);
+  sync();
+  return btn;
+}
 
 export function undoGroup() {
   const undo = h("button", { class: "btn icon plain", "aria-label": "Undo", onclick: () => send("undo") }, ico("undo"));
