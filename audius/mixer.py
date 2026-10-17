@@ -23,6 +23,12 @@ AUDIBLE_DB = -60.0          # below this an output counts as silent
 SWITCH_FADE = 0.15          # s for on/off, mutes and DIM
 RECALL_FADE = 0.35          # s for scenes and undo
 GAIN_STEP_TIME = 0.012      # s per gain step when gain jumps
+MIC_FADE = 2.0              # s for Mic 1 to fade into the speakers (slow enough to bail out)
+MIC_SPEAKERS_DB = -20.0     # where that fade ends when no level was remembered
+MIC_PHONES_DB = 0.0         # and Mic 1 in the headphones, when -inf and no level was remembered
+MIC = "in:AN1"
+PRESETS = {"phones_mic": "Headphones + Mic", "speakers_mic": "Speakers + Mic",
+           "speakers": "Speakers", "both": "Both"}
 
 OUT_PAIRS = {p[0]: p for p in bf.OUTPUT_PAIRS}
 CHANNEL_NUMBER = {ch: i + 1 for i, ch in enumerate(bf.OUTPUTS)}
@@ -282,7 +288,8 @@ class Mixer:
             self._dirty.add(ctl)
         self.cfg.changed()
 
-    def set_send(self, sid, out, db=None, pan=None, gesture=None, keep_db=False):
+    def set_send(self, sid, out, db=None, pan=None, gesture=None, keep_db=False, fade=0.03, start=None,
+                 emit=True):
         """Set a send's level (dB, None for -inf) and/or pan. keep_db changes only the pan."""
         s = self.strip(sid)
         self._begin(gesture, f"{self.name_of(s)} level")
@@ -300,8 +307,9 @@ class Mixer:
         else:
             self.cfg["pan_memory"].pop(key, None)
         # A short ramp smooths large jumps (keyboard steps, typed values) without lag on drags.
-        self._apply(targets, out, s, fade=0.03)
-        self._emit()
+        self._apply(targets, out, s, fade=fade, start=start)
+        if emit:
+            self._emit()
 
     def set_send_mute(self, sid, out, muted, gesture=None):
         s = self.strip(sid)
@@ -398,7 +406,7 @@ class Mixer:
                     self.dev.ramp(c, self._dim_value(v), SWITCH_FADE)
                     self._dirty.add(c)
 
-    def set_listen(self, mode, gesture=None):
+    def set_listen(self, mode, gesture=None, emit=True):
         """Listen on 'headphones', 'speakers' or 'both'."""
         want_ph = mode in ("headphones", "both")
         want_sp = mode in ("speakers", "both")
@@ -413,6 +421,78 @@ class Mixer:
                 self.set_volume("AN1", start, force_fade=True, emit=False)
                 if self.toast:
                     self.toast(f"Speakers start at {start:.0f} dB. Raise them slowly.")
+        if emit:
+            self._emit()
+
+    # ---- listening presets
+    def _mic(self, out):
+        """(raw level, muted) of Mic 1 into an output pair, looking through mute and 'off' memory."""
+        ctls = [bf.send_ctl(MIC, o) for o in OUT_PAIRS[out]]
+        muted = self.cfg["send_mute"].get(f"{MIC}>{out}")
+        if muted is not None:
+            return max(int(muted.get(c, 0)) for c in ctls), True
+        return max(self._logical(c, out) for c in ctls), False
+
+    def _mic_audible(self, out):
+        raw, muted = self._mic(out)
+        return raw > 0 and not muted
+
+    def _remember_mic(self, out):
+        """Keep Mic 1's level into an output so a preset can bring it back after it is silenced."""
+        raw, _ = self._mic(out)
+        if raw > 0:
+            self.cfg["mic_levels"][out] = round(bf.raw_to_db(raw), 2)
+            self.cfg.changed()
+
+    def _mic_silence(self, out, gesture):
+        """Mic 1 to -inf in an output (live, in 'off' memory or muted)."""
+        raw, muted = self._mic(out)
+        self.cfg["send_mute"].pop(f"{MIC}>{out}", None)     # a mute would swallow the new level
+        if raw > 0 or muted:
+            self.set_send(MIC, out, db=None, gesture=gesture, fade=SWITCH_FADE, emit=False)
+
+    def preset(self):
+        """Which listening preset the current state is, or None for a custom mix."""
+        ph, sp = self.output_on("PH3"), self.output_on("AN1")
+        if ph and sp:
+            return "both"
+        if ph:
+            return "phones_mic" if self._mic_audible("PH3") else None
+        if sp:
+            return "speakers_mic" if self._mic_audible("AN1") else "speakers"
+        return None
+
+    def set_preset(self, name, gesture=None):
+        """One-click listening setups, each exactly one undo step. They re-apply on every
+        call, so pressing the active one repairs a state that drifted."""
+        label = PRESETS[name]
+        gesture = gesture or "preset-" + uuid.uuid4().hex
+        self._begin(gesture, label)
+        levels = self.cfg["mic_levels"]
+        if name == "both":
+            self.set_listen("both", gesture=gesture, emit=False)
+        elif name == "phones_mic":
+            self._remember_mic("AN1")           # the speakers go quiet: keep what they had
+            self._remember_mic("PH3")
+            self.set_listen("headphones", gesture=gesture, emit=False)
+            raw, muted = self._mic("PH3")
+            if raw <= 0 or muted:
+                self.cfg["send_mute"].pop(f"{MIC}>PH3", None)
+                db = bf.raw_to_db(raw) if raw > 0 else levels.get("PH3", MIC_PHONES_DB)
+                self.set_send(MIC, "PH3", db=db, gesture=gesture, fade=SWITCH_FADE, start=0, emit=False)
+        elif name == "speakers":
+            self._remember_mic("AN1")
+            self._mic_silence("AN1", gesture)   # before the speakers come on, so it isn't restored with them
+            self.set_listen("speakers", gesture=gesture, emit=False)
+        else:
+            if self.output_on("AN1") and self._mic_audible("AN1"):
+                self.set_listen("speakers", gesture=gesture, emit=False)    # already heard: no dip
+            else:
+                self._mic_silence("AN1", gesture)
+                self.set_listen("speakers", gesture=gesture, emit=False)
+                self.set_send(MIC, "AN1", db=levels.get("AN1", MIC_SPEAKERS_DB), gesture=gesture,
+                              fade=MIC_FADE, start=0, emit=False)
+        self._commit()
         self._emit()
 
     def set_volume(self, out, db, gesture=None, force_fade=False, emit=True):
@@ -579,6 +659,7 @@ class Mixer:
         }
 
     def _restore_mix(self, state, fade=RECALL_FADE):
+        before = {c: self._logical_ctl(c) for c in bf.SEND_CTLS}
         dims = self.cfg["dim"]
         for out in [o for o in dims if o in state["output_off"]]:
             del dims[out]          # coming back switched off: its sends go to 0 below
@@ -601,6 +682,8 @@ class Mixer:
                 self._dirty.add(c)
         for k in ("links", "output_off", "send_mute", "pan_memory"):
             self.cfg.data[k] = copy.deepcopy(state[k])
+        # "Off" memory was replaced wholesale: sends it holds change without the device moving.
+        self._dirty.update(c for c in bf.SEND_CTLS if self._logical_ctl(c) != before[c])
         self._dirty.update({"strips", "outputs"})
         self.cfg.changed()
 
@@ -734,7 +817,8 @@ class Mixer:
                     dim.pop(ctl, None)
             if value > 0:
                 if out in self.cfg["output_off"]:
-                    del self.cfg["output_off"][out]      # someone switched it on elsewhere
+                    # someone switched it on elsewhere; the rest of its memory is dropped, so refresh it
+                    self._dirty.update(self.cfg["output_off"].pop(out))
                     self._dirty.add("outputs")
                 self._drop_mute_memory_for(ctl, out)
         self.cfg.changed()
@@ -747,6 +831,7 @@ class Mixer:
             "inputs": self.inputs_view(),
             "outputs": self.outputs_view(),
             "listen": self.listen_mode(),
+            "preset": self.preset(),
             "strips": self.strips_view(),
             "sends": {s.id: {o: self.send_state(s, o) for o in OUT_PAIRS} for s in self.strips()},
             "raw": {c: self._logical_ctl(c) for c in bf.SEND_CTLS},   # through "output off" memory
@@ -847,6 +932,7 @@ class Mixer:
         if dirty & set(bf.VOLUME_CTLS) or dirty & {"outputs", "strips", "prefs"} or sends_ctls:
             patch["outputs"] = self.outputs_view()
             patch["listen"] = self.listen_mode()
+            patch["preset"] = self.preset()
         if sends_ctls:
             patch["locked"] = sorted(self.dev.poisoned)
         if dirty & {bf.CLOCK, bf.OPTICAL_SPDIF, bf.SPDIF_PRO, bf.SPDIF_EMPHASIS}:
