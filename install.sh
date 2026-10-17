@@ -53,10 +53,16 @@ sys.exit(main())
 EOF
 chmod +x "$BIN/audius"
 
-sed "s|^Exec=audius|Exec=$BIN/audius|" "$SRC/data/$APP_ID.desktop" > "$DATA/applications/$APP_ID.desktop"
-install -m 644 "$SRC/data/$APP_ID.metainfo.xml" "$DATA/metainfo/"
-install -m 644 "$SRC/data/icons/$APP_ID.svg" "$DATA/icons/hicolor/scalable/apps/"
-install -m 644 "$SRC/data/icons/$APP_ID-symbolic.svg" "$DATA/icons/hicolor/symbolic/apps/"
+# GNOME Shell watches these folders and has crashed reading a half-written .desktop file,
+# taking the whole session with it. Write each file next to the app, then rename it into place.
+place() {
+  local tmp; tmp="$(mktemp -p "$PREFIX")"
+  cat > "$tmp"; chmod 644 "$tmp"; mv -f "$tmp" "$1"
+}
+sed "s|^Exec=audius|Exec=$BIN/audius|" "$SRC/data/$APP_ID.desktop" | place "$DATA/applications/$APP_ID.desktop"
+place "$DATA/metainfo/$APP_ID.metainfo.xml" < "$SRC/data/$APP_ID.metainfo.xml"
+place "$DATA/icons/hicolor/scalable/apps/$APP_ID.svg" < "$SRC/data/icons/$APP_ID.svg"
+place "$DATA/icons/hicolor/symbolic/apps/$APP_ID-symbolic.svg" < "$SRC/data/icons/$APP_ID-symbolic.svg"
 update-desktop-database -q "$DATA/applications" 2>/dev/null || true
 gtk-update-icon-cache -q -t -f "$DATA/icons/hicolor" 2>/dev/null || true
 
