@@ -84,7 +84,7 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
   per control and runs dB-linear ramps, so dragging never blocks the UI on USB transfers.
 - `mixer.py`: the model the UI talks to. Stereo pairs with a balance-law pan (lossless decode of any
   L/R pair; a mono mic at equal L/R is "centred" at its level), send mute, output on/off memory,
-  "Listen on", DIM, volume takeover and ceilings, link/unlink, scenes, gesture-grouped undo/redo.
+  listening presets, DIM, volume takeover and ceilings, link/unlink, scenes, gesture-grouped undo/redo.
 - `meters.py`: `pipewiresrc ! level` pipelines for the Babyface source and the sink monitor. They run only
   while the window is visible; GNOME's microphone indicator is expected while they run.
 - `config.py`: `~/.config/audius/config.json` (names, links, memories, scenes, prefs, limits).
@@ -95,7 +95,15 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
 Navigation: **Overview · Mixer · Routing · Device** (native segmented control in the title bar).
 
 **Overview** (daily use)
-- *Listen on: Headphones · Speakers · Both*, the one thing the hardware makes hard.
+- *Listen on*, the one thing the hardware makes hard: one-click presets, re-applied on every click
+  (even the active one), each a single undo step. *Headphones + Mic* (Ctrl+Shift+1): headphones on,
+  speakers off, Mic 1 audible in the headphones. *Speakers + Mic* (Ctrl+Shift+2): speakers on,
+  headphones off, Mic 1 fades into the speakers over 2 s to its remembered level (default −20 dB; an
+  already audible level is kept), so pressing *Speakers* can cut a feedback squeal. *Speakers*
+  (Ctrl+Shift+3): speakers on, headphones off, Mic 1 → speakers at −∞ (the level is remembered).
+  *Both* (Ctrl+Shift+B) turns both outputs on and leaves every send alone; it sits apart as the
+  quieter fourth choice. All other levels stay put. Which preset is lit is derived from the outputs'
+  on/off state and Mic 1's sends (`preset` in the view; nothing is lit for a custom state).
 - *Dim* (Ctrl+D): lowers every output you hear by 20 dB (Device page: 10–40) through the sends;
   faders don't move. Remembered across restarts; not an undo step, never stored in scenes.
 - *Mic 1*: the signature gain dial with the live level wrapped around it, an "ideal peaks" zone

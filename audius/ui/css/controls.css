@@ -26,6 +26,12 @@
 .seg.lg { border-radius: 15px; padding: 4px; }
 .seg.lg .seg-thumb { top: 4px; bottom: 4px; border-radius: 11px; }
 .seg.lg > button { height: 38px; padding: 0 18px; font-size: 13px; border-radius: 11px; }
+/* a quieter item set apart from the main choices, still part of the same radiogroup */
+.seg > button.secondary { color: var(--text-3); margin-left: 9px; }
+.seg > button.secondary::before {
+  content: ""; position: absolute; left: -5px; top: 9px; bottom: 9px; width: 1px; background: var(--hairline);
+}
+.seg > button.secondary:hover, .seg > button.secondary[aria-checked="true"] { color: var(--text); }
 .seg.sm > button { height: 24px; padding: 0 10px; min-width: 0; font-size: 12px; }
 .seg.sm { border-radius: 10px; }
 .seg.sm .seg-thumb { border-radius: 7px; }
@@ -86,7 +92,7 @@
   position: absolute; top: 50%; left: var(--inset); width: 20px; height: 20px; margin: -10px 0 0 -10px;
   border-radius: 50%; background: var(--thumb);
   box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 2px 5px rgba(0, 0, 0, 0.32), 0 0.5px 0 rgba(255, 255, 255, 0.4) inset;
-  transform: translateX(calc(var(--pos, 0) * var(--w, 0px)));
+  translate: calc(var(--pos, 0) * var(--w, 0px)) 0;   /* not transform: the drag scale would multiply it */
   transition: box-shadow var(--t-fast), scale var(--t-fast);
 }
 .slider:active .thumb, .slider.dragging .thumb { scale: 1.12; }

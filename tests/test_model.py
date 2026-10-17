@@ -294,6 +294,32 @@ class MixerModel(unittest.TestCase):
         self.assertTrue(self.m.output_on("PH3"))
         self.assertIn("raw", self.patches[-1])
 
+    def test_external_change_refreshes_rest_of_off_memory(self):
+        # The output's other sends leave "off" memory and read as the (silent) device values;
+        # the view must not keep showing their remembered levels.
+        self.m.set_send("in:AN1", "AN1", db=-6)
+        self.m.set_send("pb:AN1", "AN1", db=0)
+        self.m.set_output_on("AN1", False)
+        c = bf.send_ctl("pb:AN1", "AN1")
+        self.dev.values[c] = 32768
+        self.patches.clear()
+        self.m.on_device_change({c: 32768})
+        self.assertIsNone(self.patches[-1]["sends"]["in:AN1"]["AN1"]["db"])
+        self.assertEqual(self.patches[-1]["raw"][bf.send_ctl("in:AN1", "AN1")], 0)
+
+    def test_undo_refreshes_off_memory_raw(self):
+        # Undo/recall replace the "off" memory wholesale: raw (Routing) must follow even though
+        # no device value moves.
+        c = bf.send_ctl("in:AN2", "AN1")
+        self.m.set_output_on("AN1", False)
+        self.m.end_gesture()
+        self.m.set_send("in:AN2", "AN1", db=-30)
+        self.m.end_gesture()
+        self.assertGreater(self.m.view()["raw"][c], 0)
+        self.m.undo()
+        self.assertEqual(self.dev.values[c], 0)
+        self.assertEqual(self.patches[-1]["raw"][c], 0)
+
     def test_big_gain_jump_walks(self):
         self.m.set_gain("AN1", 60)
         name, start, end, dur = self.dev.ramps[-1]
@@ -369,6 +395,174 @@ class KernelBugWorkaround(unittest.TestCase):
         self.m.set_output_on("PH3", True)
         self.assertEqual(self.dev.values[c], before)
         self.assertIn(c, self.m.view()["locked"])
+
+
+class ListeningPresets(unittest.TestCase):
+    def setUp(self):
+        self.m, self.dev, self.cfg, self.clock, self.patches, self.toasts = make_mixer()
+        self.sp = [bf.send_ctl("in:AN1", "AN1"), bf.send_ctl("in:AN1", "AN2")]
+        self.ph = [bf.send_ctl("in:AN1", "PH3"), bf.send_ctl("in:AN1", "PH4")]
+
+    def mic(self, ctls):
+        return [self.dev.values[c] for c in ctls]
+
+    def test_phones_mic(self):
+        self.m.set_preset("speakers")
+        self.m.set_preset("phones_mic")
+        self.assertTrue(self.m.output_on("PH3"))
+        self.assertFalse(self.m.output_on("AN1"))
+        self.assertEqual(self.mic(self.ph), [bf.MAX_RAW] * 2)
+        self.assertEqual(self.m.preset(), "phones_mic")
+
+    def test_phones_mic_restores_silent_mic(self):
+        self.m.set_send("in:AN1", "PH3", db=None)
+        self.m.set_preset("phones_mic")
+        self.assertEqual(self.mic(self.ph), [bf.even(bf.db_to_raw(mx.MIC_PHONES_DB))] * 2)
+        self.cfg["mic_levels"]["PH3"] = -9.0
+        self.m.set_send("in:AN1", "PH3", db=None)
+        self.m.set_preset("phones_mic")
+        self.assertEqual(self.mic(self.ph), [bf.even(bf.db_to_raw(-9))] * 2)
+        # a mic that is muted comes back at the level it had
+        self.m.set_send("in:AN1", "PH3", db=-12)
+        self.m.set_send_mute("in:AN1", "PH3", True)
+        self.assertIsNone(self.m.preset())
+        self.m.set_preset("phones_mic")
+        self.assertEqual(self.mic(self.ph), [bf.even(bf.db_to_raw(-12))] * 2)
+        self.assertNotIn("in:AN1>PH3", self.cfg["send_mute"])
+
+    def test_phones_mic_off_memory_is_kept(self):
+        self.m.set_send("in:AN1", "AN1", db=-10)
+        self.m.set_preset("phones_mic")
+        self.assertFalse(self.m.output_on("AN1"))
+        self.assertEqual(self.mic(self.sp), [0, 0])
+        self.assertEqual(self.cfg["output_off"]["AN1"][self.sp[0]], bf.even(bf.db_to_raw(-10)))
+        self.assertEqual(self.cfg["mic_levels"]["AN1"], -10.0)
+
+    def test_speakers(self):
+        self.m.set_send("in:AN1", "AN1", db=-6)
+        self.m.set_preset("speakers")
+        self.assertFalse(self.m.output_on("PH3"))
+        self.assertTrue(self.m.output_on("AN1"))
+        self.assertEqual(self.mic(self.sp), [0, 0])
+        self.assertEqual(self.cfg["mic_levels"]["AN1"], -6.0)
+        self.assertEqual(self.m.preset(), "speakers")
+        # safety kept: the speakers start quiet
+        self.assertAlmostEqual(self.m.volume_db("AN1"), -40, places=1)
+        self.assertTrue(any("Speakers start" in t for t in self.toasts))
+        # headphones' sends went to memory, untouched
+        self.assertEqual(self.cfg["output_off"]["PH3"][self.ph[0]], bf.MAX_RAW)
+
+    def test_speakers_mic_fades_in_to_default(self):
+        self.m.set_preset("speakers_mic")
+        self.assertFalse(self.m.output_on("PH3"))
+        self.assertTrue(self.m.output_on("AN1"))
+        want = bf.even(bf.db_to_raw(mx.MIC_SPEAKERS_DB))
+        self.assertEqual(self.mic(self.sp), [want] * 2)
+        fades = [r for r in self.dev.ramps if r[0] in self.sp]
+        self.assertEqual(fades[-2:], [(c, 0, want, mx.MIC_FADE) for c in self.sp])
+        self.assertEqual(self.m.preset(), "speakers_mic")
+        self.assertEqual(self.m.view()["preset"], "speakers_mic")
+
+    def test_level_is_remembered_from_speakers(self):
+        self.m.set_preset("speakers_mic")
+        self.m.set_send("in:AN1", "AN1", db=-12)
+        self.m.set_preset("speakers")
+        self.assertEqual(self.mic(self.sp), [0, 0])
+        self.m.set_preset("speakers_mic")
+        want = bf.even(bf.db_to_raw(-12))
+        self.assertEqual(self.mic(self.sp), [want] * 2)
+        self.assertEqual([r for r in self.dev.ramps if r[0] in self.sp][-2:],
+                         [(c, 0, want, mx.MIC_FADE) for c in self.sp])
+
+    def test_level_is_remembered_from_phones_mic(self):
+        self.m.set_preset("speakers_mic")
+        self.m.set_send("in:AN1", "AN1", db=-8)
+        self.m.set_preset("phones_mic")
+        self.assertEqual(self.mic(self.sp), [0, 0])      # off, in memory
+        self.m.set_preset("speakers_mic")
+        self.assertEqual(self.mic(self.sp), [bf.even(bf.db_to_raw(-8))] * 2)
+        # the memory is not restored with the output (that would skip the slow fade)
+        self.assertNotIn("AN1", self.cfg["output_off"])
+
+    def test_audible_mic_is_kept_without_dip(self):
+        self.m.set_preset("speakers_mic")
+        self.m.set_send("in:AN1", "AN1", db=-3)
+        n = len(self.dev.ramps)
+        self.m.set_preset("speakers_mic")
+        self.assertEqual(self.mic(self.sp), [bf.even(bf.db_to_raw(-3))] * 2)
+        self.assertFalse([r for r in self.dev.ramps[n:] if r[0] in self.sp])
+
+    def test_both_leaves_sends_alone(self):
+        self.m.set_preset("speakers")
+        before = {c: self.m._logical_ctl(c) for c in bf.SEND_CTLS}
+        self.m.set_preset("both")
+        self.assertTrue(self.m.output_on("PH3") and self.m.output_on("AN1"))
+        self.assertEqual(self.m.preset(), "both")
+        self.assertEqual(self.mic(self.sp), [0, 0])
+        self.assertEqual({c: self.dev.values[c] for c in before}, before)
+
+    def test_each_preset_is_one_undo_step(self):
+        for name, label in mx.PRESETS.items():
+            self.m.set_preset("speakers" if name == "phones_mic" else "phones_mic")
+            n = len(self.m._undo)
+            before = (self.m.preset(), dict(self.dev.values))
+            self.m.set_preset(name)
+            self.m._commit()
+            self.assertEqual(len(self.m._undo), n + 1, name)
+            self.assertEqual(self.m.undo_view()["undo_label"], label)
+            self.m.undo()
+            self.assertEqual(self.m.preset(), before[0], name)
+            for c in self.sp + self.ph:
+                self.assertEqual(self.dev.values[c], before[1][c], (name, c))
+
+    def test_reclicking_reapplies_after_drift(self):
+        self.m.set_preset("speakers_mic")
+        want = self.mic(self.sp)
+        self.dev.values[self.sp[0]] = self.dev.values[self.sp[1]] = 0       # zeroed behind our back
+        self.assertEqual(self.m.preset(), "speakers")
+        self.m.set_preset("speakers_mic")
+        self.assertEqual(self.mic(self.sp), want)
+        self.assertEqual(self.m.preset(), "speakers_mic")
+        # and: a speaker send raised externally is silenced again by Speakers
+        self.m.set_preset("speakers")
+        self.dev.values[self.sp[0]] = bf.MAX_RAW
+        self.m.set_preset("speakers")
+        self.assertEqual(self.mic(self.sp), [0, 0])
+        # an output switched on elsewhere while the preset said otherwise
+        self.m.set_output_on("PH3", True)
+        self.assertEqual(self.m.preset(), "both")
+        self.m.set_preset("speakers")
+        self.assertFalse(self.m.output_on("PH3"))
+
+    def test_preset_field_is_derived(self):
+        self.assertEqual(self.m.view()["preset"], "both")             # the demo card has both outputs on
+        self.m.set_preset("phones_mic")
+        self.assertEqual(self.m.view()["preset"], "phones_mic")
+        self.m.set_send("in:AN1", "PH3", db=None)
+        self.assertIsNone(self.m.view()["preset"])
+        self.assertIsNone(self.patches[-1]["preset"])
+        self.m.set_preset("speakers_mic")
+        self.assertEqual(self.patches[-1]["preset"], "speakers_mic")
+        self.m.set_send_mute("in:AN1", "AN1", True)
+        self.assertEqual(self.patches[-1]["preset"], "speakers")
+        self.m.set_preset("both")
+        self.assertEqual(self.patches[-1]["preset"], "both")
+        self.m.set_output_on("PH3", False)
+        self.m.set_output_on("AN1", False)
+        self.assertIsNone(self.m.view()["preset"])
+
+    def test_later_action_supersedes_the_fade(self):
+        w = bf.Writer(lambda: None, {}, {self.sp[0]: 0}, lambda: None)
+        w.ramp(self.sp[0], 8000, mx.MIC_FADE, start=0)
+        w.ramp(self.sp[0], 0, mx.SWITCH_FADE)                         # preset 3 bailing out
+        self.assertEqual(len(w._ramps), 1)
+        self.assertEqual(w._ramps[self.sp[0]].end, 0)
+        w.set(self.sp[0], 4000)                                       # or a slider move
+        self.assertEqual((w._ramps, w._pending), ({}, {self.sp[0]: 4000}))
+
+    def test_unknown_preset(self):
+        with self.assertRaises(KeyError):
+            self.m.set_preset("nope")
 
 
 if __name__ == "__main__":

@@ -18,13 +18,14 @@ export function mount(el) {
   root = h("div", { class: "page-inner overview" });
   el.append(root);
   listen = new Segmented({
-    size: "lg", label: "Listen on", value: state.listen === "none" ? null : state.listen,
+    size: "lg", label: "Listen on", value: state.preset, reselect: true,
     items: [
-      { value: "headphones", label: "Headphones", icon: "headphones" },
-      { value: "speakers", label: "Speakers", icon: "speaker" },
-      { value: "both", label: "Both", icon: "both" },
+      { value: "phones_mic", label: "Headphones + Mic", icon: "headphonesMic", title: "Headphones with your mic, speakers off (Ctrl+Shift+1)" },
+      { value: "speakers_mic", label: "Speakers + Mic", icon: "speakerMic", title: "Speakers with your mic, fading in over 2 seconds; headphones off (Ctrl+Shift+2)" },
+      { value: "speakers", label: "Speakers", icon: "speaker", title: "Speakers only, mic silenced; headphones off (Ctrl+Shift+3)" },
+      { value: "both", label: "Both", icon: "both", secondary: true, title: "Headphones and speakers, mixes untouched (Ctrl+Shift+B)" },
     ],
-    onChange: (v) => send("listen", { mode: v }),
+    onChange: (v) => send("preset", { name: v }),
   });
   root.append(h("div", { class: "toolbar" },
     h("span", { class: "toolbar-label" }, "Listen on"), listen.el, dimButton(),
@@ -43,8 +44,8 @@ export function mount(el) {
   build();
   subscribe(["strips", "overview_sources", "prefs"], build);
   subscribe(["inputs"], () => cards.forEach((c) => c.inputs && c.inputs()));
-  subscribe(["outputs", "listen"], () => {
-    listen.set(state.listen === "none" ? null : state.listen);
+  subscribe(["outputs", "preset"], () => {
+    listen.set(state.preset);
     cards.forEach((c) => c.outputs && c.outputs());
   });
   subscribe(["sends"], () => cards.forEach((c) => c.sends && c.sends()));

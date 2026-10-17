@@ -512,6 +512,8 @@ class App(Adw.Application):
             m.set_output_on(msg["out"], bool(msg["on"]), gesture=g)
         elif cmd == "listen":
             m.set_listen(msg["mode"])
+        elif cmd == "preset":
+            m.set_preset(msg["name"])
         elif cmd == "dim":
             if msg.get("out"):
                 m.set_dim(msg["out"], bool(msg["on"]))

@@ -81,12 +81,14 @@ const wheelDelta = (e) => (e.deltaMode === 1 ? -e.deltaY * 0.5 : -e.deltaY * 0.0
 
 // ---------------------------------------------------------------- segmented control
 export class Segmented {
-  constructor({ items, value, onChange, size = "", label }) {
+  constructor({ items, value, onChange, size = "", label, reselect = false }) {
     this.items = items;
     this.onChange = onChange;
+    this.reselect = reselect;       // pressing the selected item still calls onChange (presets re-apply)
     this.thumb = h("div", { class: "seg-thumb" });
     this.buttons = items.map((it) => h("button", {
       role: "radio", "aria-checked": "false", title: it.title, "data-value": it.value,
+      class: it.secondary ? "secondary" : "", "aria-label": it.label,   // still named when CSS hides the text
       onclick: () => this.pick(it.value),
     }, it.icon ? ico(it.icon) : null, it.label ? h("span", {}, it.label) : null));
     this.el = h("div", { class: `seg ${size}`, role: "radiogroup", "aria-label": label }, this.thumb, ...this.buttons);
@@ -103,7 +105,7 @@ export class Segmented {
     this.set(value, false);
   }
   pick(v) {
-    if (v === this.value) return;
+    if (v === this.value && !this.reselect) return;
     this.set(v, true);
     this.onChange && this.onChange(v);
   }

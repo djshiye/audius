@@ -9,8 +9,10 @@ headphones or speakers, balance what you hear, and reach the full routing matrix
 ## What it does
 
 **Overview**: the everyday screen.
-- **Listen on Headphones · Speakers · Both.** One switch instead of hunting through crosspoints.
-  Switching to speakers from silence starts them at a safe −40 dB.
+- **Listen on** presets: **Headphones + Mic** (`Ctrl+Shift+1`), **Speakers + Mic** (`Ctrl+Shift+2`,
+  the mic fades in over 2 s so you can bail out with the next one), **Speakers** (`Ctrl+Shift+3`,
+  mic silenced) and **Both**. One click instead of hunting through crosspoints; pressing the active
+  one re-applies it. Switching to speakers from silence starts them at a safe −40 dB.
 - **Dim** (`Ctrl+D`), like the DIM key on the Babyface: what you hear drops 20 dB (adjustable)
   until you press it again. Your faders stay where they are.
 - **Mic gain dial** modelled on the Babyface's own encoder, with the live input level wrapped around

@@ -1,5 +1,15 @@
 /* ================================================================ overview */
 .overview .toolbar .seg { flex: none; }
+.toolbar-label { white-space: nowrap; }
+/* four labelled presets need room: tighten, then keep only the icons (named by aria-label and tooltip) */
+@media (max-width: 1040px) {
+  .toolbar .seg.lg > button { padding: 0 12px; }
+  .overview .toolbar .toolbar-label { display: none; }
+}
+@media (max-width: 900px) {
+  .toolbar .seg.lg > button span { display: none; }
+  .toolbar .seg.lg > button { min-width: 56px; padding: 0 14px; }
+}
 .undo-group { display: flex; gap: 2px; }
 
 .ov-grid {

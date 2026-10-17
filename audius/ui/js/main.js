@@ -108,6 +108,9 @@ function renderOffline() {
   document.getElementById("app").append(offline);
 }
 
+// Ctrl+Shift+1/2/3 (Ctrl+1-4 switch pages); H, S and B stay as the older letters for the same presets
+const PRESET_KEYS = { Digit1: "phones_mic", Digit2: "speakers_mic", Digit3: "speakers", KeyH: "phones_mic", KeyS: "speakers", KeyB: "both" };
+
 function keys(e) {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && !e.shiftKey && /^[1-4]$/.test(e.key)) {
@@ -123,9 +126,9 @@ function keys(e) {
   } else if (mod && !e.shiftKey && (e.key === "d" || e.key === "D")) {
     e.preventDefault();
     toggleDim();
-  } else if (mod && e.shiftKey && ["H", "S", "B"].includes(e.key.toUpperCase())) {
+  } else if (mod && e.shiftKey && PRESET_KEYS[e.code]) {
     e.preventDefault();
-    send("listen", { mode: { H: "headphones", S: "speakers", B: "both" }[e.key.toUpperCase()] });
+    send("preset", { name: PRESET_KEYS[e.code] });
   } else if (mod && (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "0")) {
     e.preventDefault();          // keep the layout at the system text size
   }

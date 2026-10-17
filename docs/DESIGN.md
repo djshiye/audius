@@ -55,8 +55,10 @@ figures for every number that changes.
   type a value, scroll and arrow keys adjust.
 - **Meters** use IEC 60268-18 deflection (more room near the top), instant attack, 26 dB/s release,
   1.2 s peak hold, latched clip.
-- **Segmented controls** for mutually exclusive choices (Listen on, Mixing for, reference level,
-  clock, optical format); the selection pill slides.
+- **Segmented controls** for mutually exclusive choices (Listen on presets, Mixing for, reference level,
+  clock, optical format); the selection pill slides. Listen on re-applies when you press the item that
+  is already selected, has one visually secondary item (*Both*, quieter text behind a hairline) and
+  keeps only icons, named by `aria-label` and tooltip, below 900 px.
 - **Confirmations** only where harm is possible (turning 48V on, resending volumes).
 
 ## Motion

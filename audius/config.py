@@ -30,6 +30,7 @@ DEFAULTS = {
     "output_off": {},       # outpair -> {control: raw} to restore when switched on
     "dim": {},              # outpair -> {control: raw} undimmed sends while DIM is on
     "limits": {"AN1": 0.0, "PH3": 0.0, "AS1": 0.0, "ADAT3": 0.0, "ADAT5": 0.0, "ADAT7": 0.0},
+    "mic_levels": {},       # outpair -> Mic 1 send level (dB) the listening presets bring back
     "volumes": {},          # outpair -> last volume Audius set (dB); the device can't be read back
     "scenes": [],
     "prefs": {
