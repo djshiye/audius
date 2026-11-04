@@ -1,7 +1,12 @@
 %global app_id io.github.djshiye.Audius
+# One package for every Fedora: the code lives in %{_datadir}/%{name} (not in a
+# python3.X site-packages) and runs on the system's /usr/bin/python3, so nothing
+# may pin a Python version. Nothing should generate one; this is the safety net.
+%global __requires_exclude ^python\\(abi\\)
+%global __brp_python_bytecompile %{nil}
 
 Name:           audius
-Version:        1.0.0
+Version:        1.1.0
 # CI appends .<commit count> so every build from main is a newer release.
 Release:        1%{?release_suffix}%{?dist}
 Summary:        Gain, monitoring and routing for the RME Babyface Pro FS
@@ -9,9 +14,11 @@ Summary:        Gain, monitoring and routing for the RME Babyface Pro FS
 License:        MIT
 URL:            https://github.com/djshiye/audius
 Source0:        %{name}-%{version}.tar.gz
+# The public package signing key; CI exports it from the signing secret.
+Source1:        RPM-GPG-KEY-djshiye
 BuildArch:      noarch
 
-BuildRequires:  python3-devel
+BuildRequires:  python3
 BuildRequires:  desktop-file-utils
 BuildRequires:  appstream
 BuildRequires:  alsa-lib
@@ -39,32 +46,46 @@ works around a bug in them (see docs/KERNEL-BUG.md).
 %build
 
 %install
-install -d %{buildroot}%{python3_sitelib}
-cp -r audius %{buildroot}%{python3_sitelib}/
-find %{buildroot}%{python3_sitelib}/audius -name __pycache__ -prune -exec rm -rf {} +
+# The whole package tree, including the web interface under audius/ui.
+install -d %{buildroot}%{_datadir}/%{name}
+cp -r audius %{buildroot}%{_datadir}/%{name}/
+find %{buildroot}%{_datadir}/%{name} -name __pycache__ -prune -exec rm -rf {} +
+find %{buildroot}%{_datadir}/%{name} -type d -exec chmod 0755 {} +
+find %{buildroot}%{_datadir}/%{name} -type f -exec chmod 0644 {} +
 install -d %{buildroot}%{_bindir}
-printf '#!%{python3}\nimport sys\nfrom audius.app import main\nsys.exit(main())\n' > %{buildroot}%{_bindir}/audius
+printf '#!/usr/bin/python3 -sP\nimport sys\nsys.path.insert(0, "%{_datadir}/%{name}")\nfrom audius.app import main\nsys.exit(main())\n' > %{buildroot}%{_bindir}/audius
 chmod 0755 %{buildroot}%{_bindir}/audius
 install -Dpm 0644 data/%{app_id}.desktop %{buildroot}%{_datadir}/applications/%{app_id}.desktop
 install -Dpm 0644 data/%{app_id}.metainfo.xml %{buildroot}%{_metainfodir}/%{app_id}.metainfo.xml
 install -Dpm 0644 data/icons/%{app_id}.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 install -Dpm 0644 data/icons/%{app_id}-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/symbolic/apps/%{app_id}-symbolic.svg
+# The DNF repository definition and its signing key, so the repository keeps itself configured.
+install -Dpm 0644 build-aux/%{name}.repo %{buildroot}%{_sysconfdir}/yum.repos.d/%{name}.repo
+install -Dpm 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{app_id}.desktop
 appstreamcli validate --no-net --explain %{buildroot}%{_metainfodir}/%{app_id}.metainfo.xml
-%{python3} -m unittest discover -s tests
+/usr/bin/python3 -m unittest discover -s tests
 
 %files
 %license LICENSE
 %doc README.md docs/KERNEL-BUG.md
 %{_bindir}/audius
-%{python3_sitelib}/audius/
+%{_datadir}/%{name}/
 %{_datadir}/applications/%{app_id}.desktop
 %{_metainfodir}/%{app_id}.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 %{_datadir}/icons/hicolor/symbolic/apps/%{app_id}-symbolic.svg
+# Plain %%config, not noreplace: if the repository ever moves, an upgrade moves
+# users with it (a hand-edited copy is kept as .rpmsave).
+%config %{_sysconfdir}/yum.repos.d/%{name}.repo
+%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %changelog
+* Wed Nov 04 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.1.0-1
+- One package for every Fedora release: installed under /usr/share/audius, runs on any Python 3
+- Signed DNF repository on GitHub Pages; the package installs its own repository file and key
+
 * Wed Oct 07 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.0.0-1
 - First release

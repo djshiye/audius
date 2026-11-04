@@ -32,6 +32,14 @@
     <display_length compare="ge">560</display_length>
   </requires>
   <releases>
+    <release version="1.1.0" date="2026-11-04">
+      <description>
+        <ul>
+          <li>One package for every Fedora release, independent of the Python version</li>
+          <li>Signed packages from a DNF repository that keeps itself configured</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-07">
       <description><p>First release.</p></description>
     </release>

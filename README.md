@@ -56,15 +56,26 @@ device never reports back. Its front-panel knob changes things Audius can't see.
 
 ## Install
 
-Needs Fedora (or similar) with GNOME's usual stack: `python3-gobject gtk4 libadwaita webkitgtk6.0
-gstreamer1-plugins-good pipewire-gstreamer pipewire-utils` (all present on Fedora Workstation).
+Every push to `main` builds one signed RPM in GitHub Actions and publishes it as a signed DNF
+repository on GitHub Pages. The same package works on every current Fedora release:
+
+```sh
+sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/audius/audius.repo
+sudo dnf install audius
+```
+
+dnf asks once to trust the signing key (`https://djshiye.github.io/audius/RPM-GPG-KEY-djshiye`).
+The package installs its own `/etc/yum.repos.d/audius.repo` and the key, so `dnf upgrade` keeps it
+current from then on.
+
+To run it from a checkout instead, with GNOME's usual stack installed (`python3-gobject gtk4
+libadwaita webkitgtk6.0 gstreamer1-plugins-good pipewire-gstreamer pipewire-utils`, all present on
+Fedora Workstation):
 
 ```sh
 ./install.sh             # installs for your user: app grid entry, icon, `~/.local/bin/audius`
 ./install.sh --uninstall
 ```
-
-An RPM spec lives in `build-aux/audius.spec`; CI builds the RPM on every push.
 
 The Babyface must be in Class Compliant mode: hold **SELECT** and **DIM** while connecting USB
 (the meters show "CC").

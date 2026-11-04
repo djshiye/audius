@@ -1,5 +1,10 @@
 name: Audius CI
 
+# Every push and pull request builds and tests one noarch RPM on the oldest
+# supported Fedora. It installs under /usr/share/audius and runs on any
+# Python 3, so the same package serves every Fedora release.
+# Pushes to main also sign it, publish the signed DNF repository on GitHub
+# Pages and install it from there in clean Fedora 44 and 45 containers.
 on:
   push:
     branches: [main]
@@ -8,14 +13,20 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  APP: audius
+  SITE_URL: https://djshiye.github.io/audius
 
 jobs:
-  fedora:
-    name: Test and build RPM (Fedora 44)
+  build:
+    name: Build and test RPM
     runs-on: ubuntu-latest
     container:
       image: fedora:44
+    outputs:
+      evr: ${{ steps.rpm.outputs.evr }}
     steps:
       # git first: without it checkout downloads a tarball and the commit
       # count used for the RPM release number is unavailable.
@@ -28,9 +39,31 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          dnf install -y rpm-build rpmdevtools rpmlint python3-devel python3-gobject alsa-lib \
-            desktop-file-utils appstream tar
+          dnf install -y rpm-build rpmdevtools rpmlint python3 python3-gobject alsa-lib \
+            desktop-file-utils appstream tar gnupg2
 
+      # The only step that sees the signing secret, before any project code
+      # runs: it exports the public half for the package and forgets the rest.
+      - name: Public signing key
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          rpmdev-setuptree
+          export GNUPGHOME=$(mktemp -d)
+          if [ -n "$RPM_SIGNING_KEY" ]; then
+            printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
+          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            # Pull requests from forks get no secrets: build with a throwaway key.
+            gpg --batch --passphrase '' --quick-gen-key 'Throwaway CI key' rsa2048 sign 1d
+          else
+            echo "::error::The RPM_SIGNING_KEY secret is not set for this repository."
+            exit 1
+          fi
+          gpg --batch --armor --export-options export-minimal --export > ~/rpmbuild/SOURCES/RPM-GPG-KEY-djshiye
+          gpgconf --kill all
+          rm -rf "$GNUPGHOME"
+
+      # ---- Tests ----
       - name: Syntax check
         run: python3 -m compileall -q audius tools build-aux
 
@@ -44,19 +77,110 @@ jobs:
           node tests/test_dsp.mjs
 
       - name: Build RPM
+        id: rpm
         run: |
           VERSION=$(sed -n 's/^Version: *//p' build-aux/audius.spec)
           git config --global --add safe.directory "$PWD"
           BUILD=$(git rev-list --count HEAD)
-          rpmdev-setuptree
           git archive --format=tar.gz --prefix="audius-${VERSION}/" \
             -o ~/rpmbuild/SOURCES/audius-${VERSION}.tar.gz HEAD
           rpmbuild -ba --define "release_suffix .$BUILD" build-aux/audius.spec
           rpmlint build-aux/audius.spec ~/rpmbuild/RPMS/noarch/audius-*.rpm || true
+          mkdir -p out
+          cp ~/rpmbuild/RPMS/noarch/audius-*.rpm ~/rpmbuild/SRPMS/audius-*.src.rpm out/
+          echo "evr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' ~/rpmbuild/RPMS/noarch/audius-*.noarch.rpm)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload RPM
+      - name: No Python version pinned
+        run: |
+          rpm -qp --requires out/*.noarch.rpm
+          if rpm -qp --requires out/*.noarch.rpm | grep -E '^python\(abi\)|python3\.[0-9]+'; then
+            echo "::error::The package pins a Python version; it must run on any Fedora."
+            exit 1
+          fi
+
+      - name: Upload RPMs
         uses: actions/upload-artifact@v4
         with:
-          name: audius-rpm-fedora-44
-          path: ~/rpmbuild/RPMS/noarch/audius-*.rpm
+          name: audius-rpms
+          path: out/*.rpm
           if-no-files-found: error
+
+  publish:
+    name: Sign and assemble repository
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: audius-rpms
+          path: new
+      - name: Sign packages and build the repository
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          dnf install -y rpm-sign createrepo_c python3-rpm gnupg2
+          printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
+          FPR=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr/ {print $10; exit}')
+          gpg --batch --armor --export-options export-minimal --export "$FPR" > "$RUNNER_TEMP/key.asc"
+          rpmsign --define "_gpg_name $FPR" --addsign new/*.rpm
+          python3 build-aux/dnf-repo.py --app "$APP" --url "$SITE_URL" --title Audius \
+            --summary "Gain, monitoring and routing for the RME Babyface Pro FS" \
+            --icon data/icons/io.github.djshiye.Audius.svg \
+            --new new --site site --fetch --legacy-releases none \
+            --repo-file build-aux/audius.repo --key "$RUNNER_TEMP/key.asc"
+          gpgconf --kill all
+          echo "### Signed with key \`$FPR\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  # A clean container adds the repository from its URL, installs with
+  # signature checks on, and imports the app.
+  verify:
+    name: Install on Fedora ${{ matrix.fedora }} (${{ matrix.setup }} repo file)
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [44, 45]
+        setup: [new]
+    container:
+      image: fedora:${{ matrix.fedora }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: build-aux/verify-install.sh
+          sparse-checkout-cone-mode: false
+      - name: Install from the published repository
+        run: |
+          sh build-aux/verify-install.sh "${{ matrix.setup }}" "$APP" "$SITE_URL" \
+            "${{ needs.build.outputs.evr }}"
+      - name: Smoke test
+        run: |
+          /usr/bin/python3 -sP -c 'import sys; sys.path.insert(0, "/usr/share/audius"); import audius.app; print(audius.__version__)'
+          head -n1 /usr/bin/audius | grep -qx '#!/usr/bin/python3 -sP'
