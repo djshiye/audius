@@ -41,7 +41,10 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
    `Main-Out` reads `1`. That `1` is not a level: it's a kernel bug (see `docs/KERNEL-BUG.md`). The
    main outs were never written, the boot-time restore skips them for the same reason, and the
    output volumes live entirely on the device (knob + its own memory). Audius treats them as
-   *unknown* until it sets them.
+   *unknown* until it sets them, and again in every new boot. Once Audius has set one, the boot
+   restore would bring that level back at every start; the RPM's `alsa-state` drop-in resets the
+   saved value to `1` right after the shutdown save so the knob keeps its level (never at boot,
+   where the card is restored twice; see `docs/KERNEL-BUG.md`).
 5. **Kernel bug:** the quirk caches `index | value << 9` with a 10-bit index. Odd values written to a
    crosspoint redirect later writes to `index + 512`. Audius only writes even values and locks any
    crosspoint that already reads odd.
@@ -52,6 +55,10 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
 - Output volume changes are **ramped**. If Audius hasn't set that output in the last 45 s, or the
   window was away (the knob may have moved), the first change **fades in from −60 dB over 0.7 s**
   instead of jumping. Nothing gets louder in one step.
+- A volume Audius can't vouch for (set in an earlier boot, or on the knob more than 45 s ago) is
+  **unknown** and can't be **nudged** (scroll, arrows, track clicks): there's no "here" to nudge
+  from, and guessing one could make it quieter or louder than it is. Dragging, typing or
+  "Start at" sets it on purpose.
 - Each output has a **user-defined volume ceiling** (default 0 dB).
 - Turning speakers on while their volume is unknown or near silence starts them at **−40 dB**.
 - Only **even** raw values are ever written to volume controls (kernel bug workaround).

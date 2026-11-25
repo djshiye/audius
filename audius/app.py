@@ -17,7 +17,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, WebKit  # noqa: E40
 from gi.repository import JavaScriptCore as JSC  # noqa: E402
 
 from . import __version__  # noqa: E402
-from . import alsa, babyface, meters, pipewire  # noqa: E402
+from . import alsa, babyface, bootstate, meters, pipewire  # noqa: E402
 from .config import CONFIG_DIR, Config  # noqa: E402
 from .mixer import Mixer  # noqa: E402
 
@@ -262,6 +262,8 @@ class App(Adw.Application):
         self.mixer = Mixer(self.dev, self.cfg)
         self.mixer.listener = self.push
         self.mixer.toast = lambda text: self.push({"toast": {"text": text}})
+        if not self.args.demo:
+            self._boot_state_notice()
         self.dev.on_gone = self._on_gone
         self.dev.watch()
         self._rate = self.dev.stream_rate()
@@ -269,6 +271,17 @@ class App(Adw.Application):
             GLib.source_remove(self._poll_id)
             self._poll_id = None
         return True
+
+    def _boot_state_notice(self):
+        """Once: the saved sound state would pull an output to an old level at the next boot
+        (an Audius before 1.1.1 set a volume; see audius/bootstate.py)."""
+        if self.cfg["notices"].get("boot_volumes"):
+            return
+        text = bootstate.notice()
+        if text:
+            self.cfg["notices"]["boot_volumes"] = True
+            self.cfg.changed()
+            self.push({"toast": {"text": text}})
 
     def _on_gone(self):
         log.info("Babyface disconnected")

@@ -50,6 +50,9 @@ device never reports back. Its front-panel knob changes things Audius can't see.
 - **Volume changes fade in.** If Audius hasn't set an output in the last 45 s (or you've been in
   another window, possibly turning the knob), the next change fades in from −60 dB over 0.7 s
   instead of jumping. Each output has a **ceiling** you choose (default 0 dB).
+- **The knob wins.** Audius can't see where the knob is, so once you've used it (or after a
+  restart), scrolling a volume in Audius does nothing but tell you so. Turn the knob, or drag the
+  handle to set the volume from Audius on purpose.
 - **Headphones/Speakers on and off** work through the routing, never the volume, so they don't fight
   the knob.
 - **48V** asks before switching on. Scenes and undo never touch volume or 48V.
@@ -100,6 +103,18 @@ cleanup for already-affected controls are in [docs/KERNEL-BUG.md](docs/KERNEL-BU
 - `audius/app.py`: the native GTK 4 window (transparent header bar, real window controls) hosting
   the interface in WebKitGTK through a custom `audius://` scheme; messages go both ways.
 - `audius/ui/`: the interface: plain HTML, CSS and JavaScript modules, no build step.
+
+### Keep the knob's volume at startup
+
+Fedora saves the sound card's settings at shutdown and restores them at startup. Once Audius has
+set an output volume, that restore would pull your headphones back to the saved level every time,
+whatever the knob says. The RPM prevents that: right after the settings are saved at shutdown it
+puts the Babyface's saved output volumes back to "not set" (see `docs/KERNEL-BUG.md`). Installed with
+`install.sh` instead, do it by hand whenever Audius warns you:
+
+```sh
+sudo systemctl stop alsa-state && sudo python3 tools/keep-knob-volumes.py && sudo reboot
+```
 
 Settings live in `~/.config/audius/config.json`. The mixer state itself is kept by ALSA
 (`alsa-state.service`).

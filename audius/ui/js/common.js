@@ -7,6 +7,18 @@ import { fmtDb } from "./dsp.js";
 export const anyDimmed = () => (state.outputs || []).some((o) => o.dimmed);
 export const toggleDim = () => send("dim", { on: !anyDimmed() });
 
+// An output volume Audius can't vouch for (the knob may have moved it, or it was put back at
+// startup) can't be nudged: "a bit louder" needs a "here". Say how to change it instead, once
+// per burst of scrolling rather than per wheel tick.
+export const KNOB_HELD_TEXT = "Audius can’t see where your Babyface knob is. Turn the knob, or drag the handle to set this volume here.";
+export const UNKNOWN_HELD_TEXT = "Audius doesn’t know where this volume is yet, so it won’t nudge it. Drag the handle to set it.";
+let hintAt = 0;
+export function heldHint(o) {
+  const now = Date.now();
+  if (now - hintAt > 4000) toast(o && o.knob ? KNOB_HELD_TEXT : UNKNOWN_HELD_TEXT);
+  hintAt = now;
+}
+
 // Like the DIM key on the Babyface: what you hear drops by a set amount until you press it again.
 export function dimButton() {
   const btn = h("button", { class: "pill dim-pill", "aria-pressed": "false", onclick: toggleDim },

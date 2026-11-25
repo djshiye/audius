@@ -155,9 +155,13 @@ export function toggleSwitch({ checked = false, label, onToggle }) {
 // the pointer rather than jumping there, so a stray click can't make anything much louder.
 export class Slider {
   constructor({ db = null, label, page = 6, step = 0.5, max = MAX_DB, unity = true, cmeter = null,
-                onInput, onEnd, onEdit, format = (v) => fmtDb(v) }) {
+                onInput, onEnd, onEdit, onHeld, format = (v) => fmtDb(v) }) {
     this.db = db; this.page = page; this.step = step; this.max = max; this.label = label;
-    this.onInput = onInput; this.onEnd = onEnd; this.format = format;
+    this.onInput = onInput; this.onEnd = onEnd; this.onHeld = onHeld; this.format = format;
+    // Held: the real value lives somewhere Audius can't see (the device knob). Nudges
+    // (wheel, arrows, paging) mean "a bit from here", and there is no "here", so they
+    // don't write. Setting a value outright (drag, typing, Home/End) still works.
+    this.held = false;
     this.fill = h("div", { class: "fill" });
     this.thumb = h("div", { class: "thumb" });
     this.el = h("div", {
@@ -184,6 +188,7 @@ export class Slider {
         }
         let startPos = pos;
         if (Math.abs(e.clientX - thumbX) > 14) {
+          if (this.held) { this.nudgeHeld(); return null; }
           const dir = e.clientX > thumbX ? 1 : -1;
           const cur = this.db === null ? -70 : this.db;
           const target = dir > 0 ? Math.min(this.max, cur + this.page) : cur - this.page < -64 ? null : cur - this.page;
@@ -217,10 +222,12 @@ export class Slider {
       else if (e.key === "Enter") { this.edit(); e.preventDefault(); return; }
       else return;
       e.preventDefault();
+      if (this.held && e.key !== "Home" && e.key !== "End") { this.nudgeHeld(); return; }
       this.commit(v === null ? null : Math.round(v * 10) / 10, this.burst.id(), true);
     });
     this.el.addEventListener("wheel", (e) => {
       e.preventDefault();
+      if (this.held) { this.nudgeHeld(); return; }
       const d = wheelDelta(e);
       const cur = this.db === null ? (d > 0 ? -64 : null) : this.db;
       if (cur === null) return;
@@ -259,6 +266,8 @@ export class Slider {
     this.el.setAttribute("aria-valuetext", this.format(this.db));
   }
   setMax(max) { this.max = max; }
+  setHeld(held) { this.held = !!held; this.el.classList.toggle("held", this.held); }
+  nudgeHeld() { this.onHeld && this.onHeld(); }
   attachMeter({ channels, offset }) {
     this.cover = h("div", { class: "cover" });
     this.el.append(h("div", { class: "cmeter", "aria-hidden": "true" }, this.cover));
@@ -283,8 +292,9 @@ export class Slider {
 
 // ---------------------------------------------------------------- vertical fader
 export class VFader {
-  constructor({ db = null, height = 260, label, page = 6, max = MAX_DB, onInput, onEnd }) {
+  constructor({ db = null, height = 260, label, page = 6, max = MAX_DB, onInput, onEnd, onHeld }) {
     this.db = db; this.h = height; this.page = page; this.max = max; this.onInput = onInput; this.onEnd = onEnd;
+    this.onHeld = onHeld; this.held = false;    // see Slider
     this.cap = h("div", { class: "cap" });
     const ticks = [MAX_DB, 0, -12, -24, -40, -60].map((d) =>
       h("div", { class: "tick" + (d === 0 ? " unity" : ""), style: { top: (1 - dbToPos(d)) * height + "px" } }));
@@ -304,6 +314,7 @@ export class VFader {
         if (e.altKey || e.ctrlKey) { this.commit(0, g, true); this.onEnd && this.onEnd(g); return null; }
         let startPos = pos;
         if (Math.abs(e.clientY - capY) > 16) {
+          if (this.held) { this.nudgeHeld(); return null; }
           const dir = e.clientY < capY ? 1 : -1;
           const cur = this.db === null ? -70 : this.db;
           const t = dir > 0 ? Math.min(this.max, cur + this.page) : cur - this.page < -64 ? null : cur - this.page;
@@ -333,10 +344,12 @@ export class VFader {
       else if (e.key === "End") v = 0;
       else return;
       e.preventDefault();
+      if (this.held && e.key !== "Home" && e.key !== "End") { this.nudgeHeld(); return; }
       this.commit(v === null ? null : Math.round(v * 10) / 10, this.burst.id(), true);
     });
     this.el.addEventListener("wheel", (e) => {
       e.preventDefault();
+      if (this.held) { this.nudgeHeld(); return; }
       const d = wheelDelta(e);
       const cur = this.db === null ? (d > 0 ? -64 : null) : this.db;
       if (cur === null) return;
@@ -357,6 +370,8 @@ export class VFader {
     this.spring.set(dbToPos(db), animate);
     this.aria();
   }
+  setHeld(held) { this.held = !!held; this.el.classList.toggle("held", this.held); }
+  nudgeHeld() { this.onHeld && this.onHeld(); }
   aria() {
     this.el.setAttribute("aria-valuenow", dbToPos(this.db).toFixed(3));
     this.el.setAttribute("aria-valuetext", fmtDb(this.db));

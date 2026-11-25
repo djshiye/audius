@@ -71,6 +71,44 @@ sudo reboot                             # the daemon restores the corrected stat
 The tool changes only the Babyface's `… Playback Volume` crosspoints. It deliberately leaves
 `Main-Out` values alone: their stored `1` is what keeps the boot restore from overriding your knob.
 
+## The boot restore and the output volumes (fixed in 1.1.1)
+
+The stored `1` only lasts until Audius sets an output volume once. At the next shutdown
+`alsa-state` saves the real value (for example `Main-Out PH3 8045`, −12.2 dB), and from then on
+every boot restores it, pulling the headphones back to that level whatever the knob says. Found on
+2026-11-25 after the headphones kept coming up quieter than the knob had them.
+
+**Decision:** keep the model where output volume lives on the device, shared with the knob, and
+stop the restore from overriding it. The alternative (Audius's volume on the sends, `Main-Out`
+left to the knob) would change DIM, the ceilings, the presets and the knob guide, and still leave
+Audius unable to see the knob, so it wasn't worth it.
+
+- **At shutdown, not at boot.** The RPM installs `audius-keep-knob.conf` drop-ins for
+  `alsa-state.service` (`ExecStopPost`) and `alsa-store.service` (`ExecStartPost`). Right after
+  the shutdown save they run `/usr/libexec/audius/keep-knob-volumes --shutdown`, which puts `1`
+  back into every Babyface `Main-Out` in `asound.state` (backup: `asound.state.audius-backup`).
+  At the next boot every restore meets a freshly probed card, where restoring `1` is skipped, so
+  the device keeps its knob level.
+- **Why not before the boot restore:** Fedora restores the card twice at boot, first from a udev
+  rule as soon as the Babyface appears (3 to 5 s in), then from `alsa-state` (about 8 s in). A
+  reset between the two would make the second restore really write `1`, and `1` is near silence.
+- **Only while shutting down** (`systemctl is-system-running` says `stopping`). If `alsa-state`
+  restarts mid-session, for example on an alsa-utils upgrade, the real level stays saved and its
+  restore is harmless (it equals the driver's cache). For the same reason Audius never writes `1`
+  or `0` at runtime to "unsave" a volume.
+- **Fails safe.** If the step can't run (missing file, unexpected format, a policy refusal), it
+  changes nothing: the worst case is the old behaviour (the restore brings back Audius's last
+  level), never silence.
+- **In Audius.** A volume set in an earlier boot (the config stores the kernel `boot_id`) is
+  unknown, even if the driver holds the same value: the restore put it there, and the knob may
+  have moved it since. A volume the knob drives is only trusted for 45 s after Audius set it.
+  An unknown volume can't be nudged (scroll, arrow keys, clicking the track): Audius explains why
+  and leaves it alone. Dragging the handle up from silence, typing a value, or "Start at −40 dB"
+  sets it on purpose, and that still fades in from quiet.
+- **Existing installs.** On the first start after the update, if `asound.state` holds a saved
+  Babyface volume, Audius says once that a restart fixes it (the shutdown step cleans it), or
+  points to the README when the drop-in isn't installed.
+
 During development (2026-10-06) one such crosspoint was locked on the author's card:
 `Line-ADAT8-ADAT8` (optical input 8 → optical output 8). Nothing is connected to the optical
 ports, and the crosspoint sits at −96 dB, so it is inaudible; the cleanup above clears it.

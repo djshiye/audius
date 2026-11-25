@@ -5,7 +5,7 @@ import { send, frameSender } from "../bridge.js";
 import { Segmented, Slider, Dial, pill } from "../controls.js";
 import { fmtDb, fmtGain } from "../dsp.js";
 import * as meters from "../meters.js";
-import { undoGroup, scenesButton, dimButton } from "../common.js";
+import { undoGroup, scenesButton, dimButton, heldHint, KNOB_HELD_TEXT } from "../common.js";
 
 const MIX_TITLES = { PH3: "In your headphones", AN1: "From your speakers" };
 const stripIcon = (s) => (s.kind === "pb" ? "computer" : s.channels[0].startsWith("AN") ? "mic"
@@ -204,6 +204,7 @@ function outputCard(outId) {
     db: o0.volume_db, label: `${o0.name} volume`, max: o0.limit_db, step: 1, page: 6,
     onInput: (db, g) => { volValue.textContent = fmtDb(db); vol.el.classList.remove("ghost"); volSender({ out: outId, db, gesture: g }); },
     onEnd: () => volSender.flush(),
+    onHeld: () => heldHint(output(outId)),
   });
   const hintText = h("span", {});
   const startDb = () => state.prefs.speaker_start_db ?? -40;
@@ -243,13 +244,15 @@ function outputCard(outId) {
     dimPill.lastChild.textContent = `Dimmed ${fmtDb(state.prefs.dim_db ?? -20, { digits: 0 })}`;
     vol.setMax(o.limit_db);
     const unknown = !o.volume_known;
+    vol.setHeld(unknown);
     vol.el.classList.toggle("ghost", unknown && !vol.dragging);
     if (!vol.dragging) {
       vol.set(unknown ? null : o.volume_db);
       volValue.textContent = unknown ? (o.knob ? "On the knob" : "Not set") : fmtDb(o.volume_db);
     }
     volValue.classList.toggle("dimmer", unknown);
-    volValue.title = unknown ? "Audius hasn’t set this volume yet, so it is wherever the Babyface has it. Your first change fades in from quiet." : "";
+    volValue.title = !unknown ? "" : o.knob ? KNOB_HELD_TEXT
+      : "Audius hasn’t set this volume since your computer started, so it is wherever the Babyface has it. Drag the handle to set it; it fades in from quiet.";
     knobNote.hidden = o.volume_fresh || unknown;
     const quiet = unknown || o.volume_db === null || o.volume_db <= -60;
     hintText.textContent = unknown ? "Speaker volume isn’t set yet." : "Speakers are silent.";

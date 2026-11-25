@@ -32,6 +32,8 @@ DEFAULTS = {
     "limits": {"AN1": 0.0, "PH3": 0.0, "AS1": 0.0, "ADAT3": 0.0, "ADAT5": 0.0, "ADAT7": 0.0},
     "mic_levels": {},       # outpair -> Mic 1 send level (dB) the listening presets bring back
     "volumes": {},          # outpair -> last volume Audius set (dB); the device can't be read back
+    "volumes_boot": None,   # the boot (kernel boot_id) those volumes were set in
+    "notices": {},          # one-time messages already shown
     "scenes": [],
     "prefs": {
         "meters": True,            # live levels (needs a capture stream)
@@ -84,6 +86,12 @@ class Config:
 
     def __getitem__(self, key):
         return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def get(self, key, default=None):
+        return self.data.get(key, default)
 
     def changed(self):
         """Schedule a save (debounced) after a mutation."""

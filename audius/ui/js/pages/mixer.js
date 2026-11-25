@@ -5,7 +5,7 @@ import { send, frameSender } from "../bridge.js";
 import { Segmented, VFader, Pan, MeterV, faderScale, toggleSwitch } from "../controls.js";
 import { fmtDb, fmtPan, clamp } from "../dsp.js";
 import * as meters from "../meters.js";
-import { undoGroup, scenesButton, dimButton } from "../common.js";
+import { undoGroup, scenesButton, dimButton, heldHint } from "../common.js";
 
 const SUBTITLE = {
   PH3: "Each fader sets how loud a source is in your headphones.",
@@ -148,6 +148,7 @@ function masterStrip(outId) {
     db: o0.volume_db, height: fh, max: o0.limit_db, label: `${o0.name} volume`,
     onInput: (db, g) => { value.textContent = fmtDb(db, { unit: false }); fader.el.classList.remove("ghost"); sender({ out: outId, db, gesture: g }); },
     onEnd: () => sender.flush(),
+    onHeld: () => heldHint(output(outId)),
   });
   const knob = h("div", {
     class: "master-knob", title: "The knob on your Babyface also changes this volume, and Audius can’t see it. Your next change here fades in from quiet.",
@@ -163,6 +164,7 @@ function masterStrip(outId) {
     const o = output(outId);
     if (!o) return;
     const unknown = !o.volume_known;
+    fader.setHeld(unknown);
     fader.max = o.limit_db;
     fader.set(unknown ? null : o.volume_db);
     fader.el.classList.toggle("ghost", unknown && !fader.dragging);

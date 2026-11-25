@@ -9,6 +9,7 @@ import logging
 import math
 import threading
 import time
+from pathlib import Path
 
 from . import alsa
 
@@ -482,8 +483,19 @@ def demo_state():
     return s   # output volumes read as 0: never written this boot, so unknown
 
 
+def boot_id():
+    """This boot's identity: a volume Audius set in an earlier boot isn't one it can vouch for."""
+    try:
+        return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    except OSError:
+        return None
+
+
 def demo_volumes(dev, cfg):
     """--demo: pretend the volumes were set from Audius earlier (headphones -18, speakers -24 dB)."""
+    if cfg.get("volumes_boot") != boot_id():
+        cfg["volumes"] = {}
+        cfg["volumes_boot"] = boot_id()
     for out, db in (("PH3", -18.0), ("AN1", -24.0)):
         cfg["volumes"].setdefault(out, db)
         pair = ("PH3", "PH4") if out == "PH3" else ("AN1", "AN2")
