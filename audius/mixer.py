@@ -73,10 +73,11 @@ class Strip:
 
 
 class Mixer:
-    def __init__(self, device, config, clock=time.monotonic):
+    def __init__(self, device, config, clock=time.monotonic, boot=None):
         self.dev = device
         self.cfg = config
         self.clock = clock
+        self.boot = bf.boot_id() if boot is None else boot
         self.listener = None            # callback(patch dict)
         self.toast = None               # callback(text)
         self._vol_confirmed = {}        # outpair -> clock() of last Audius volume write
@@ -225,15 +226,29 @@ class Mixer:
         o_l, o_r = OUT_PAIRS[out]
         return self.dev.values[bf.volume_ctl(o_l)], self.dev.values[bf.volume_ctl(o_r)]
 
-    def volume_known(self, out):
-        """Whether Audius knows the output volume: it set it, and the driver still holds
-        that value. A volume that was never written this boot reads 0 and lives only on
-        the device (its knob and its own memory)."""
+    def volume_written(self, out):
+        """Whether the driver holds the volume Audius set, in this boot. A volume that was never
+        written this boot reads 0 and lives only on the device (its knob and its own memory). One
+        that matches a level Audius set in an earlier boot was put back by the boot-time restore,
+        and the knob may have moved it since, so it doesn't count."""
         mem = self.cfg["volumes"].get(out)
-        if mem is None:
+        if mem is None or self.cfg.get("volumes_boot") != self.boot:
             return False
         left, right = self.volume_raw(out)
         return max(left, right) > 0 and abs(max(left, right) - bf.even(bf.db_to_raw(mem))) <= 2
+
+    def knob_output(self, out):
+        return out in self.prefs.get("knob_outputs", ["PH3"])
+
+    def volume_known(self, out):
+        """Whether Audius knows where the output volume really is. The driver never hears
+        about the device's knob, so for an output the knob controls, what Audius wrote is only
+        trusted while it is fresh: after that the knob may have moved it, and a change made
+        from the stale value could make it quieter than it is (or the boot-time restore may
+        have put back an old level)."""
+        if not self.volume_written(out):
+            return False
+        return not self.knob_output(out) or self.volume_fresh(out)
 
     def volume_db(self, out):
         if not self.volume_known(out):
@@ -247,7 +262,7 @@ class Mixer:
     def audible(self, out):
         if not self.output_on(out):
             return False
-        if out in self.prefs.get("knob_outputs", ["PH3"]) and not self.volume_known(out):
+        if self.knob_output(out) and not self.volume_known(out):
             return True  # its volume lives on the device knob
         db = self.volume_db(out)
         return db is not None and db > AUDIBLE_DB
@@ -503,8 +518,11 @@ class Mixer:
             db = min(float(db), limit)
         o_l, o_r = OUT_PAIRS[out]
         cur_l, cur_r = self.volume_raw(out)
-        pan = (balance(cur_l, cur_r) or 0.0) if self.volume_known(out) else 0.0
+        pan = (balance(cur_l, cur_r) or 0.0) if self.volume_written(out) else 0.0
         left, right = unbalance(bf.db_to_raw(db), pan)
+        if self.cfg.get("volumes_boot") != self.boot:     # levels from an earlier boot mean nothing now
+            self.cfg["volumes"] = {}
+            self.cfg["volumes_boot"] = self.boot
         self.cfg["volumes"][out] = db if db is not None else -120.0
         self.cfg.changed()
         now = self.clock()
@@ -882,7 +900,7 @@ class Mixer:
                 "volume_db": self.volume_db(o), "volume_known": self.volume_known(o),
                 "balance": round(balance(left, right) or 0.0, 3), "volume_fresh": self.volume_fresh(o),
                 "limit_db": float(self.cfg["limits"].get(o, 0.0)),
-                "knob": o in self.prefs.get("knob_outputs", ["PH3"]),
+                "knob": self.knob_output(o),
             })
         return out
 

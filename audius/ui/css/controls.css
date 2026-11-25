@@ -98,6 +98,8 @@
 .slider:active .thumb, .slider.dragging .thumb { scale: 1.12; }
 .slider.ghost .thumb { opacity: 0.0; }
 .slider.ghost .fill { opacity: 0.0; }
+/* On the knob: nudges don't apply, but the handle can still be dragged up from silence. */
+.slider.ghost.held .thumb { opacity: 0.45; }
 .slider.ghost .track { background: repeating-linear-gradient(90deg, var(--fill-2) 0 6px, transparent 6px 10px); }
 .slider.off .fill { background: var(--text-3); }
 .slider.muted .fill { background: var(--text-3); }

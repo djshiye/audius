@@ -21,7 +21,7 @@ def make_mixer():
     cfg = Config(Path(tmp) / "config.json", autosave=False)
     dev = bf.DemoDevice()
     clock = Clock()
-    m = mx.Mixer(dev, cfg, clock=clock)
+    m = mx.Mixer(dev, cfg, clock=clock, boot="boot-1")
     patches = []
     m.listener = patches.append
     toasts = []
@@ -384,6 +384,60 @@ class KernelBugWorkaround(unittest.TestCase):
         for ch in ("Main-Out PH3", "Main-Out PH4"):
             self.dev.values[ch] = 2000
         self.assertFalse(self.m.volume_known("PH3"))
+
+    def test_knob_volume_is_only_trusted_while_fresh(self):
+        # The knob may move the headphones without the driver hearing about it, so once the
+        # takeover window passes Audius must not offer its stale value as "where it is".
+        self.m.set_volume("PH3", -13.4)
+        self.assertTrue(self.m.volume_known("PH3"))
+        self.clock.t += mx.TAKEOVER_WINDOW + 1
+        self.m.expire()
+        self.assertFalse(self.m.volume_known("PH3"))
+        self.assertIsNone(self.m.volume_db("PH3"))
+        ph = {o["id"]: o for o in self.m.view()["outputs"]}["PH3"]
+        self.assertFalse(ph["volume_known"])
+        self.assertTrue(ph["knob"])
+        self.assertTrue(self.m.audible("PH3"))          # still counts as listening on headphones
+        # an output the knob doesn't drive keeps its value
+        self.m.set_volume("AN1", -30)
+        self.clock.t += mx.TAKEOVER_WINDOW + 1
+        self.m.expire()
+        self.assertAlmostEqual(self.m.volume_db("AN1"), -30, places=1)
+
+    def test_restart_within_the_knob_window_is_not_trusted(self):
+        # Same boot, Audius reopened: nothing it wrote is fresh in the new run.
+        self.m.set_volume("PH3", -12.2)
+        m2 = mx.Mixer(self.dev, self.cfg, clock=self.clock, boot="boot-1")
+        self.assertTrue(m2.volume_written("PH3"))
+        self.assertFalse(m2.volume_known("PH3"))
+        m2.set_volume("PH3", -12.0)                    # a deliberate change still fades in
+        self.assertEqual(self.dev.ramps[-1][3], mx.TAKEOVER_FADE)
+
+    def test_a_level_restored_at_boot_is_unknown(self):
+        # Dino's case: -12.2 dB set yesterday, saved at shutdown as 8045, restored at boot. The
+        # driver and the config agree, but it's a new boot, so neither is evidence of the device.
+        self.m.set_volume("PH3", -12.2)
+        self.m.set_volume("AN1", -30)
+        self.assertEqual(self.dev.values["Main-Out PH3"], bf.even(bf.db_to_raw(-12.2)))
+        m2 = mx.Mixer(self.dev, self.cfg, clock=self.clock, boot="boot-2")
+        for out in ("PH3", "AN1"):                     # the knob can drive the speakers too
+            self.assertFalse(m2.volume_written(out), out)
+            self.assertFalse(m2.volume_known(out), out)
+            self.assertIsNone(m2.volume_db(out), out)
+        self.assertEqual(m2.listen_mode(), "headphones")
+        m2.set_volume("AN1", -24)                      # writing in this boot starts afresh
+        self.assertEqual(self.cfg["volumes_boot"], "boot-2")
+        self.assertNotIn("PH3", self.cfg["volumes"])
+        self.assertAlmostEqual(m2.volume_db("AN1"), -24, places=1)
+
+    def test_balance_survives_the_window(self):
+        self.m.set_volume("PH3", -20)
+        self.dev.values["Main-Out PH4"] = bf.even(self.dev.values["Main-Out PH4"] // 2)
+        self.cfg["volumes"]["PH3"] = -20
+        self.clock.t += mx.TAKEOVER_WINDOW + 1
+        self.m.set_volume("PH3", -20)
+        left, right = self.m.volume_raw("PH3")
+        self.assertGreater(left, right)
 
     def test_poisoned_crosspoints_are_never_written(self):
         c = bf.send_ctl("in:AN1", "PH3")
