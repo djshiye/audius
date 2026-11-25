@@ -38,7 +38,7 @@ class KeepKnob(unittest.TestCase):
         path = Path(d) / "asound.state"
         path.write_text(text)
         os.chmod(path, mode)
-        rc = keep.main([str(path)], flag=Path(d) / "flag")
+        rc = keep.main([str(path)], stopping=lambda: True)
         return rc, path
 
     def test_resets_only_babyface_main_outs(self):
@@ -64,13 +64,13 @@ class KeepKnob(unittest.TestCase):
         clean, _ = bootstate.reset(STATE)
         rc, path = self.run_on(clean)
         before = path.stat().st_mtime_ns
-        self.assertEqual(keep.main([str(path)], flag=path.parent / "flag"), 0)
+        self.assertEqual(keep.main([str(path)], stopping=lambda: True), 0)
         self.assertEqual(path.stat().st_mtime_ns, before)
         self.assertEqual(path.read_text(), clean)
 
     def test_missing_or_foreign_files_are_harmless(self):
         d = Path(tempfile.mkdtemp())
-        self.assertEqual(keep.main([str(d / "nope")], flag=d / "flag"), 0)
+        self.assertEqual(keep.main([str(d / "nope")], stopping=lambda: True), 0)
         text = "state.Generic {\n" + control(1, "Main-Out PH3", 8045) + "}\n"
         rc, path = self.run_on(text)
         self.assertEqual(path.read_text(), text)
@@ -80,26 +80,30 @@ class KeepKnob(unittest.TestCase):
         self.assertEqual(changes, ["Main-Out PH3: 8045 -> 1", "Main-Out PH4: 8045 -> 1", "Main-Out AS1: 32769 -> 1"])
 
 
-    def test_boot_mode_runs_once_per_boot(self):
-        # A second restore in the same boot (alsa-state restarted on an upgrade) must find the
-        # real level still saved: the driver holds it, so restoring 1 would really write near-silence.
-        d = Path(tempfile.mkdtemp())
-        path, flag = d / "asound.state", d / "run" / "flag"
-        flag.parent.mkdir()
-        path.write_text(STATE)
-        keep.main(["--boot", str(path)], flag=flag)
-        self.assertTrue(flag.exists())
-        self.assertEqual(bootstate.saved_volumes(path.read_text()), {})
-        path.write_text(STATE)                       # saved again mid-session
-        keep.main(["--boot", str(path)], flag=flag)
-        self.assertEqual(path.read_text(), STATE)    # untouched
-
-    def test_boot_mode_does_nothing_without_its_flag(self):
+    def test_shutdown_mode_only_acts_while_shutting_down(self):
+        # alsa-state restarted mid-session (an alsa-utils upgrade): the driver holds a real level,
+        # so the saved file must keep it. Restoring the placeholder then would write near-silence.
         d = Path(tempfile.mkdtemp())
         path = d / "asound.state"
         path.write_text(STATE)
-        keep.main(["--boot", str(path)], flag=d / "missing-dir" / "flag")   # /run not writable
+        keep.main(["--shutdown", str(path)], stopping=lambda: False)
         self.assertEqual(path.read_text(), STATE)
+        keep.main(["--shutdown", str(path)], stopping=lambda: True)
+        self.assertEqual(bootstate.saved_volumes(path.read_text()), {})
+
+    def test_shutting_down_reads_systemd(self):
+        import subprocess
+        real = subprocess.run
+        try:
+            for out, want in (("stopping\n", True), ("running\n", False), ("degraded\n", False), ("", False)):
+                subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=out)
+                self.assertIs(keep.shutting_down(), want, out)
+            def boom(*a, **k):
+                raise FileNotFoundError("systemctl")
+            subprocess.run = boom
+            self.assertFalse(keep.shutting_down())
+        finally:
+            subprocess.run = real
 
 
 class Notice(unittest.TestCase):

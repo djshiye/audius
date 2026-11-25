@@ -43,7 +43,8 @@ ADAT 1/2), `ADAT3–8`. Outputs: `AN1 AN2` (XLR, the speakers), `PH3 PH4` (both 
    output volumes live entirely on the device (knob + its own memory). Audius treats them as
    *unknown* until it sets them, and again in every new boot. Once Audius has set one, the boot
    restore would bring that level back at every start; the RPM's `alsa-state` drop-in resets the
-   saved value to `1` once per boot so the knob keeps its level (see `docs/KERNEL-BUG.md`).
+   saved value to `1` right after the shutdown save so the knob keeps its level (never at boot,
+   where the card is restored twice; see `docs/KERNEL-BUG.md`).
 5. **Kernel bug:** the quirk caches `index | value << 9` with a 10-bit index. Odd values written to a
    crosspoint redirect later writes to `index + 512`. Audius only writes even values and locks any
    crosspoint that already reads odd.

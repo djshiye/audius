@@ -108,8 +108,8 @@ cleanup for already-affected controls are in [docs/KERNEL-BUG.md](docs/KERNEL-BU
 
 Fedora saves the sound card's settings at shutdown and restores them at startup. Once Audius has
 set an output volume, that restore would pull your headphones back to the saved level every time,
-whatever the knob says. The RPM prevents that: before the first restore of each boot it puts the
-Babyface's saved output volumes back to "not set" (see `docs/KERNEL-BUG.md`). Installed with
+whatever the knob says. The RPM prevents that: right after the settings are saved at shutdown it
+puts the Babyface's saved output volumes back to "not set" (see `docs/KERNEL-BUG.md`). Installed with
 `install.sh` instead, do it by hand whenever Audius warns you:
 
 ```sh

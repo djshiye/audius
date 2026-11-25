@@ -2,18 +2,23 @@
 """Keep the boot-time sound restore from overriding the Babyface volume knob.
 
 Puts the driver's "never written" placeholder (1) back into every Babyface `Main-Out` value in
-the saved sound state, so the restore leaves the device at its knob level. See audius/bootstate.py.
+the saved sound state, so restores leave the device at its knob level. See audius/bootstate.py.
 
-The RPM runs it from a systemd drop-in, right before alsa-state (or alsa-restore) restores:
+The RPM runs it from systemd drop-ins right after the state is saved at shutdown:
 
-    keep-knob-volumes --boot
+    keep-knob-volumes --shutdown
 
-`--boot` does the reset at most once per boot (a flag in /run). If alsa-state restarts later in
-the session, for example on an alsa-utils upgrade, the driver already holds a real volume, so
-restoring the placeholder would really be written, and 1 is near silence. With the flag present,
-or if it can't be created, nothing is touched.
+Why at shutdown and not before the boot restore: Fedora restores a card twice at boot, first from
+a udev rule as soon as the Babyface appears, then again from alsa-state. Resetting between the
+two would make the second restore really write 1 (the first one already put a real level into the
+driver), and 1 is near silence. After the shutdown save nothing restores until the card is freshly
+probed at the next boot, when restoring 1 is skipped.
 
-By hand (as root, with alsa-state stopped, then reboot):
+`--shutdown` does nothing unless the system is actually shutting down (`systemctl
+is-system-running` says "stopping"), so an alsa-state restart in the middle of a session (for
+example on an alsa-utils upgrade) keeps the real level saved and restores it harmlessly.
+
+By hand (as root, with alsa-state stopped, then reboot so nothing restores in between):
 
     sudo systemctl stop alsa-state
     sudo /usr/libexec/audius/keep-knob-volumes        # or: sudo python3 tools/keep-knob-volumes.py
@@ -22,8 +27,8 @@ By hand (as root, with alsa-state stopped, then reboot):
 It never fails the sound service: a missing, unreadable or unexpected file is left alone. When it
 changes something, the previous file is kept as asound.state.audius-backup.
 """
-import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,23 +37,23 @@ _tree = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_tree) if (_tree / "audius" / "bootstate.py").is_file() else "/usr/share/audius")
 from audius import bootstate  # noqa: E402
 
-BOOT_FLAG = Path("/run/audius-keep-knob")
 
-
-def first_time_this_boot(flag):
+def shutting_down():
+    """True only while systemd is taking the system down. Anything unexpected counts as no."""
     try:
-        os.close(os.open(flag, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644))
-        return True
-    except OSError:          # already done this boot, or /run unwritable: do nothing
+        out = subprocess.run(["systemctl", "is-system-running"], capture_output=True, text=True,
+                             timeout=5, check=False).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
         return False
+    return out == "stopping"
 
 
-def main(argv=None, flag=BOOT_FLAG):
+def main(argv=None, stopping=shutting_down):
     argv = sys.argv[1:] if argv is None else list(argv)
-    boot = "--boot" in argv
-    args = [a for a in argv if a != "--boot"]
+    at_shutdown = "--shutdown" in argv
+    args = [a for a in argv if a != "--shutdown"]
     path = Path(args[0]) if args else bootstate.STATE
-    if boot and not first_time_this_boot(flag):
+    if at_shutdown and not stopping():
         return 0
     try:
         text = path.read_text()

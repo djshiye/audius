@@ -7,9 +7,10 @@ is what gets saved, and every boot pulls the output back to it, overriding the k
 
 A saved `Main-Out` value of 1 is the driver's "never written" placeholder (docs/KERNEL-BUG.md):
 on a freshly probed card restoring it is skipped, so the device keeps its knob and memory level.
-`reset()` puts that placeholder back. It is only safe right before a boot-time restore: later
-in a session the driver holds a real value, the restore would really write 1, and 1 is silence.
-That's why the systemd drop-in runs it once per boot (see tools/keep-knob-volumes.py).
+`reset()` puts that placeholder back. It is only safe when no restore can follow until the card
+is freshly probed again: once the driver holds a real value, restoring 1 is really written, and
+1 is near silence. So the systemd drop-in runs it right after the shutdown save, never at boot
+(Fedora restores twice at boot: udev first, then alsa-state). See tools/keep-knob-volumes.py.
 
 stdlib only: this runs as root before anything else in Audius is loaded.
 """
